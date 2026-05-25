@@ -56,10 +56,34 @@ ln -sf /etc/nginx/sites-available/oasis-solar /etc/nginx/sites-enabled/oasis-sol
 # Remove default que escuta em todas as conexões
 rm -f /etc/nginx/sites-enabled/default
 
-# 3) Testa e recarrega Nginx
-nginx -t
-systemctl reload nginx
-echo "   ✓ Nginx configurado e recarregado"
+# 3) Garante que o Nginx está habilitado e rodando
+systemctl enable nginx >/dev/null 2>&1 || true
+
+# Se o Apache estiver ocupando a porta 80, derruba pra dar lugar ao Nginx
+if systemctl is-active --quiet apache2 2>/dev/null; then
+  echo "   ⚠️  Apache rodando — derrubando para liberar a porta 80..."
+  systemctl stop apache2
+  systemctl disable apache2
+fi
+
+# 4) Testa configuração
+if ! nginx -t 2>&1; then
+  echo "❌ Configuração do Nginx inválida. Veja o erro acima."
+  exit 1
+fi
+
+# 5) Garante que o Nginx está ativo (usa restart, que funciona se já estiver
+#    rodando OU se estiver parado — mais robusto que reload)
+systemctl restart nginx
+
+# Confirma
+if systemctl is-active --quiet nginx; then
+  echo "   ✓ Nginx ativo e configurado"
+else
+  echo "❌ Nginx não conseguiu subir. Diagnóstico:"
+  systemctl status nginx --no-pager | tail -15
+  exit 1
+fi
 
 # 4) HTTPS via Let's Encrypt (só se for um domínio real, não IP)
 if [[ "$DOMAIN" =~ ^[0-9.]+$ ]]; then

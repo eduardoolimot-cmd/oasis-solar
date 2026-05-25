@@ -23,6 +23,10 @@ echo "📦 Instalando pacotes essenciais..."
 apt install -y -qq curl wget gnupg2 ca-certificates lsb-release \
                    build-essential git ufw nginx software-properties-common
 
+# Garante que o Nginx está habilitado e ativo (caso a instalação não tenha iniciado)
+systemctl enable nginx >/dev/null 2>&1 || true
+systemctl start nginx >/dev/null 2>&1 || true
+
 # 3) Node.js 20 LTS via NodeSource
 echo ""
 echo "📦 Instalando Node.js 20..."
