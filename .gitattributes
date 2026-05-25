@@ -1,0 +1,16 @@
+# Mantém LF (Unix) em scripts e arquivos de servidor — essencial para Linux
+*.sh                text eol=lf
+deploy/*            text eol=lf
+
+# Garante LF nos arquivos do servidor
+server/**           text eol=lf
+client/**           text eol=lf
+*.js                text eol=lf
+*.json              text eol=lf
+*.prisma            text eol=lf
+*.html              text eol=lf
+*.css               text eol=lf
+*.md                text eol=lf
+
+# Texto = LF, binários = preserva
+* text=auto

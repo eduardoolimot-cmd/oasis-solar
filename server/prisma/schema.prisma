@@ -1,0 +1,223 @@
+// =================================================
+// OASIS SOLAR — Schema Prisma (PostgreSQL)
+// =================================================
+// Para dev local: precisa de PostgreSQL rodando localmente (ou Neon free)
+// e DATABASE_URL apontando para ele.
+// Para produção: o VPS aplica o schema via `prisma db push`.
+//
+// Histórico:
+// - schema.sqlite.prisma → versão alternativa para SQLite (não usada por padrão)
+// =================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  senhaHash    String
+  nome         String
+  role         String   @default("VISUALIZADOR")
+  ativo        Boolean  @default(true)
+  ultimoLogin  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  lancamentos  Lancamento[]
+  manutencoes  Manutencao[]
+  financeiros  Financeiro[]
+  notificacoes Notificacao[]
+  auditLogs    AuditLog[]
+  acessos      UsinaAccess[]
+}
+
+model UsinaAccess {
+  userId    String
+  usinaId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usina Usina @relation(fields: [usinaId], references: [id], onDelete: Cascade)
+
+  @@id([userId, usinaId])
+  @@index([userId])
+  @@index([usinaId])
+}
+
+model Usina {
+  id          String   @id @default(cuid())
+  nome        String   @unique
+  kwp         Float
+  inicio      DateTime?
+  local       String?
+  obs         String?
+
+  moduloModelo String?
+  moduloQtd    Int      @default(0)
+  moduloW      Int      @default(400)
+  moduloFab    String?
+
+  inversorModelo String?
+  inversorQtd    Int      @default(0)
+  inversorKw     Int      @default(110)
+  inversorFab    String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  skids       Skid[]
+  previsoes   Previsao[]
+  lancamentos Lancamento[]
+  manutencoes Manutencao[]
+  financeiros Financeiro[]
+  acessos     UsinaAccess[]
+
+  @@index([nome])
+}
+
+model Skid {
+  id        String   @id @default(cuid())
+  usinaId   String
+  nome      String
+  kwp       Float    @default(0)
+  createdAt DateTime @default(now())
+
+  usina       Usina        @relation(fields: [usinaId], references: [id], onDelete: Cascade)
+  previsoes   Previsao[]
+  lancamentos Lancamento[]
+
+  @@unique([usinaId, nome])
+}
+
+model Previsao {
+  id      String  @id @default(cuid())
+  usinaId String
+  skidId  String?
+  mes     Int
+  gen     Float   @default(0)
+  irrad   Float   @default(0)
+  pr      Float   @default(0)
+
+  usina Usina @relation(fields: [usinaId], references: [id], onDelete: Cascade)
+  skid  Skid? @relation(fields: [skidId], references: [id], onDelete: Cascade)
+
+  @@unique([usinaId, skidId, mes])
+}
+
+model Lancamento {
+  id       String  @id @default(cuid())
+  usinaId  String
+  skidId   String?
+  periodo  String
+  geracao  Float
+  irrad    Float   @default(0)
+  pr       Float   @default(0)
+  disp     Float   @default(0)
+  obs      String?
+
+  criadoPorId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  usina     Usina @relation(fields: [usinaId], references: [id], onDelete: Cascade)
+  skid      Skid? @relation(fields: [skidId], references: [id], onDelete: SetNull)
+  criadoPor User? @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([usinaId, skidId, periodo])
+  @@index([periodo])
+  @@index([usinaId, periodo])
+}
+
+model Manutencao {
+  id       String   @id @default(cuid())
+  usinaId  String
+  tipo     String
+  status   String   @default("plan")
+  titulo   String
+  data     DateTime?
+  resp     String?
+  comp     String?
+  detalhe  String?
+
+  criadoPorId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  usina     Usina      @relation(fields: [usinaId], references: [id], onDelete: Cascade)
+  criadoPor User?      @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
+  arquivos  Arquivo[]
+
+  @@index([usinaId, status])
+  @@index([data])
+}
+
+model Arquivo {
+  id           String   @id @default(cuid())
+  manutencaoId String
+  nome         String
+  url          String
+  mime         String
+  tamanho      Int
+  createdAt    DateTime @default(now())
+
+  manutencao Manutencao @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+
+  @@index([manutencaoId])
+}
+
+model Financeiro {
+  id      String   @id @default(cuid())
+  usinaId String
+  tipo    String
+  data    DateTime
+  cat     String
+  desc    String?
+  val     Float
+  st      String   @default("pg")
+
+  criadoPorId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  usina     Usina @relation(fields: [usinaId], references: [id], onDelete: Cascade)
+  criadoPor User? @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
+
+  @@index([usinaId, data])
+  @@index([tipo, data])
+}
+
+model Notificacao {
+  id        String   @id @default(cuid())
+  userId    String?
+  titulo    String
+  body      String
+  tipo      String   @default("info")
+  lida      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, lida])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  acao       String
+  recurso    String
+  recursoId  String?
+  payload    String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([recurso, recursoId])
+  @@index([userId, createdAt])
+}

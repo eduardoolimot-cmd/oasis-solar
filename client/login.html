@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OASIS SOLAR — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="styles.css">
+<style>
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0057B8 0%,#001F5C 100%);padding:20px;}
+.login-card{background:#fff;border-radius:20px;padding:36px 30px;width:380px;max-width:100%;box-shadow:0 24px 60px rgba(0,31,92,.4);}
+.brand{text-align:center;margin-bottom:24px;}
+.brand .ico{font-size:38px;color:#FFD600;margin-bottom:10px;}
+.brand .title{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:800;color:#0057B8;letter-spacing:1px;}
+.brand .sub{font-size:11px;color:#8EA3C0;letter-spacing:2px;text-transform:uppercase;margin-top:2px;}
+.lg-msg{background:#FEE2E2;color:#991B1B;padding:9px 12px;border-radius:8px;font-size:12px;margin-bottom:13px;display:none;}
+.lg-msg.show{display:block;}
+.lg-msg.ok{background:#D1FAE5;color:#065F46;}
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="brand">
+    <div class="ico"><i class="fas fa-sun"></i></div>
+    <div class="title">OASIS SOLAR</div>
+    <div class="sub">Sistema de Gestão</div>
+  </div>
+  <div id="msg" class="lg-msg"></div>
+  <form id="loginForm" class="fg" style="grid-template-columns:1fr">
+    <div class="fgrp">
+      <label class="flabel">E-mail</label>
+      <input id="email" class="finput" type="email" placeholder="seu@email.com" required autocomplete="username" autofocus>
+    </div>
+    <div class="fgrp">
+      <label class="flabel">Senha</label>
+      <input id="senha" class="finput" type="password" placeholder="••••••••" required autocomplete="current-password">
+    </div>
+    <button id="btn" class="btn btn-p" type="submit" style="width:100%;justify-content:center;padding:11px;font-size:14px;margin-top:6px">
+      <i class="fas fa-sign-in-alt"></i> Entrar
+    </button>
+  </form>
+</div>
+<script type="module" src="login.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+{
+  "name": "oasis-solar-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Servidor da aplicação OASIS SOLAR — gestão de usinas fotovoltaicas",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:reset": "prisma db push --force-reset && npm run db:seed",
+    "db:seed": "node prisma/seed.js",
+    "db:seed-real": "node prisma/seed-real.js",
+    "db:seed-geracao": "node prisma/seed-geracao.js",
+    "db:seed-geracao-2025": "node prisma/seed-geracao-2025.js",
+    "db:studio": "prisma studio"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.5.6",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "pdfkit": "^0.18.0",
+    "socket.io": "^4.8.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0",
+    "socket.io-client": "^4.8.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

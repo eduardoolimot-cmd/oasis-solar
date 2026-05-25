@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OASIS SOLAR — Painel</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="app">
+<aside class="sb">
+  <div class="sb-logo">
+    <div class="icon"><i class="fas fa-sun"></i></div>
+    <div class="title">OASIS SOLAR</div>
+    <div class="sub">Sistema de Gestão</div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-lbl">Principal</div>
+    <div class="nav-item active" data-section="dashboard"><i class="fas fa-chart-line"></i>Painel Principal</div>
+    <div class="nav-item" data-section="cadastro"><i class="fas fa-solar-panel"></i>Cadastro de Usinas</div>
+    <div class="sb-lbl">Operação</div>
+    <div class="nav-item" data-section="lancamento"><i class="fas fa-upload"></i>Lançamento de Dados</div>
+    <div class="nav-item" data-section="importar"><i class="fas fa-file-import"></i>Importar Planilha</div>
+    <div class="nav-item" data-section="manutencao"><i class="fas fa-tools"></i>Manutenção</div>
+    <div class="sb-lbl">Análise</div>
+    <div class="nav-item" data-section="financeiro"><i class="fas fa-dollar-sign"></i>Financeiro</div>
+    <div class="nav-item" data-section="comparativo"><i class="fas fa-balance-scale"></i>Comparativo</div>
+    <div class="nav-item" data-section="relatorio"><i class="fas fa-file-alt"></i>Relatório</div>
+    <div class="sb-lbl" data-role="ADMIN">Administração</div>
+    <div class="nav-item" data-section="usuarios" data-role="ADMIN"><i class="fas fa-users-cog"></i>Usuários</div>
+  </nav>
+  <div class="sb-foot">
+    <div class="user-badge" id="userBadge" title="Clique para sair">
+      <div class="user-av" id="userAv">?</div>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:#fff" id="userName">…</div>
+        <div class="role-tag" id="userRole">…</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="pg-title" id="pgTitle">Painel Principal</div>
+      <div class="pg-bread" id="pgBread">Visão geral do parque fotovoltaico</div>
+    </div>
+    <div class="tb-right">
+      <div class="status-badge" id="rtStatus"><div class="status-dot"></div><span>Conectando…</span></div>
+      <button class="tb-btn" id="btnRefresh" title="Atualizar"><i class="fas fa-sync-alt"></i></button>
+      <button class="tb-btn" id="btnNotif" title="Notificações"><i class="fas fa-bell"></i><div class="notif-dot" id="notifDot"></div></button>
+    </div>
+  </div>
+
+  <div class="notif-panel" id="notifPanel">
+    <div class="notif-ph">
+      <h3><i class="fas fa-bell" style="color:var(--p);margin-right:6px"></i>Notificações</h3>
+      <button class="mclose" id="btnNotifClose"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="notif-list" id="notifList"></div>
+    <div style="padding:10px;border-top:1px solid var(--bd)">
+      <button class="btn btn-o btn-sm" style="width:100%" id="btnNotifAllRead">Marcar todas como lidas</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+  <!-- DASHBOARD -->
+  <div id="sec-dashboard" class="section active">
+    <div class="fbar">
+      <span class="flbl"><i class="fas fa-filter"></i> Filtros</span>
+      <select class="fsel" id="fAno"></select>
+      <select class="fsel" id="fMes">
+        <option value="">Todos os meses</option>
+        <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option>
+        <option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option>
+        <option value="07">Jul</option><option value="08">Ago</option><option value="09">Set</option>
+        <option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
+      </select>
+      <select class="fsel" id="fUsina"><option value="">Todas as Usinas</option></select>
+      <select class="fsel" id="fSkid"><option value="">Todos os SKIDs</option></select>
+      <button class="btn btn-p" id="btnApplyFilter"><i class="fas fa-search"></i> Aplicar</button>
+      <button class="btn btn-o" id="btnClearFilter"><i class="fas fa-times"></i> Limpar</button>
+    </div>
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="ch-grid">
+      <div class="ch-card">
+        <div class="ch-head">
+          <div><div class="ch-title">Geração Mensal × Prevista</div><div class="ch-sub" id="chartSub">—</div></div>
+        </div>
+        <canvas id="mainChart"></canvas>
+      </div>
+      <div class="ch-card">
+        <div class="ch-head">
+          <div><div class="ch-title">Por Usina</div><div class="ch-sub">Participação na geração</div></div>
+        </div>
+        <canvas id="pieChart"></canvas>
+      </div>
+    </div>
+    <div class="ch-grid" style="grid-template-columns:1fr 1fr">
+      <div class="ch-card">
+        <div class="ch-head">
+          <div><div class="ch-title">Irradiação Mensal — Prevista × Realizada</div><div class="ch-sub">kWh/m²</div></div>
+        </div>
+        <canvas id="irradChart"></canvas>
+      </div>
+      <div class="ch-card">
+        <div class="ch-head">
+          <div><div class="ch-title">Produtividade (Yield Específico)</div><div class="ch-sub" id="yieldSub">kWh/kWp por mês</div></div>
+        </div>
+        <canvas id="yieldChart"></canvas>
+      </div>
+    </div>
+    <div class="tcard">
+      <div class="thead-bar">
+        <div class="tcard-title">Detalhamento Mês a Mês</div>
+      </div>
+      <table><thead><tr><th>Mês</th><th>Geração Real</th><th>Geração Prev.</th><th>Variação</th><th>Irradiação</th><th>PR</th><th>Disponib.</th></tr></thead><tbody id="monthTblBody"></tbody></table>
+    </div>
+    <div class="tcard">
+      <div class="thead-bar">
+        <div class="tcard-title">Desempenho por Usina</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-o btn-sm" id="btnExpLancCSV"><i class="fas fa-file-csv"></i> Lançamentos CSV</button>
+          <button class="btn btn-ok btn-sm" id="btnExpPDF" title="Selecione uma usina e mês"><i class="fas fa-file-pdf"></i> Relatório PDF</button>
+        </div>
+      </div>
+      <table><thead><tr><th>Usina</th><th>Potência</th><th>Geração Real</th><th>Prev. (c/ deg.)</th><th>Yield</th><th>PR</th><th>Disp.</th><th>Status</th></tr></thead><tbody id="dashTblBody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- CADASTRO -->
+  <div id="sec-cadastro" class="section">
+    <div class="sec-bar">
+      <div><div class="sec-title">Cadastro de Usinas</div><div class="sec-desc">Gerenciar usinas, módulos e SKIDs</div></div>
+      <button class="btn btn-p" id="btnNovaUsina" data-role="ADMIN,TECNICO"><i class="fas fa-plus"></i> Nova Usina</button>
+    </div>
+    <div id="cadList"></div>
+  </div>
+
+  <!-- LANÇAMENTO -->
+  <div id="sec-lancamento" class="section">
+    <div class="sec-bar"><div><div class="sec-title">Lançamento de Dados</div><div class="sec-desc">Registrar geração mensal</div></div></div>
+    <div class="tcard" style="padding:20px" data-role="ADMIN,TECNICO">
+      <div style="font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:7px"><i class="fas fa-upload" style="color:var(--p)"></i> Novo Lançamento</div>
+      <div class="fg">
+        <div class="fgrp"><label class="flabel">Usina <span class="req">*</span></label><select class="fselect" id="lUsina"></select></div>
+        <div class="fgrp"><label class="flabel">SKID</label><select class="fselect" id="lSkid"><option value="">Geral (sem SKID)</option></select></div>
+        <div class="fgrp"><label class="flabel">Mês/Ano <span class="req">*</span></label><input type="month" class="finput" id="lPer"></div>
+        <div class="fgrp"><label class="flabel">Geração Real (kWh) <span class="req">*</span></label><input type="number" class="finput" id="lGen" placeholder="Ex: 185000"></div>
+        <div class="fgrp"><label class="flabel">Irradiação (kWh/m²)</label><input type="number" class="finput" id="lIrr" step="0.1"></div>
+        <div class="fgrp"><label class="flabel">PR (%)</label><input type="number" class="finput" id="lPR" step="0.1" min="0" max="100"></div>
+        <div class="fgrp"><label class="flabel">Disponibilidade (%)</label><input type="number" class="finput" id="lDisp" step="0.1"></div>
+        <div class="fgrp"><label class="flabel">Observações</label><input type="text" class="finput" id="lObs"></div>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:16px;padding-top:13px;border-top:1px solid var(--bd)">
+        <button class="btn btn-p" id="btnSaveLanc"><i class="fas fa-save"></i> Salvar</button>
+        <button class="btn btn-o" id="btnClearLanc"><i class="fas fa-eraser"></i> Limpar</button>
+      </div>
+    </div>
+    <div class="tcard">
+      <div class="thead-bar">
+        <div class="tcard-title">Histórico</div>
+        <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+          <select class="fsel" id="lFU"><option value="">Todas as usinas</option></select>
+          <select class="fsel" id="lFA"><option value="">Todos os anos</option></select>
+          <select class="fsel" id="lFM"><option value="">Todos os meses</option><option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option><option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Ago</option><option value="09">Set</option><option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option></select>
+        </div>
+      </div>
+      <table><thead><tr><th>Usina</th><th>SKID</th><th>Período</th><th>Geração (kWh)</th><th>Irrad.</th><th>PR</th><th>Disp.</th><th>Obs.</th><th></th></tr></thead><tbody id="lancHist"></tbody></table>
+    </div>
+  </div>
+
+  <!-- IMPORTAR -->
+  <div id="sec-importar" class="section">
+    <div class="sec-bar">
+      <div><div class="sec-title">Importar via Planilha</div><div class="sec-desc">Carregue o modelo CSV para inserir dados em lote</div></div>
+      <button class="btn btn-o btn-sm" id="btnDownloadModelo"><i class="fas fa-download"></i> Baixar Modelo CSV</button>
+    </div>
+    <div class="alert alert-i" data-role="ADMIN,TECNICO"><i class="fas fa-info-circle"></i><div><strong>Formato:</strong> Usina, SKID e Ano nas 3 primeiras linhas. Colunas: Mês; Geração; Irradiação; PR; Disponibilidade. Separador: ponto e vírgula (;)</div></div>
+    <div class="tcard" style="padding:20px" data-role="ADMIN,TECNICO">
+      <div class="fg" style="margin-bottom:14px">
+        <div class="fgrp"><label class="flabel">Usina destino <span class="req">*</span></label><select class="fselect" id="impUsina"></select></div>
+        <div class="fgrp"><label class="flabel">Ano (sobrescreve o do CSV)</label><input type="text" class="finput" id="impAno" placeholder="Opcional — ex: 2025" maxlength="4"></div>
+      </div>
+      <div class="import-zone" id="importZone">
+        <i class="fas fa-file-upload"></i>
+        <strong>Clique ou arraste o arquivo CSV</strong><br>
+        <small>Separador ponto e vírgula (;)</small>
+      </div>
+      <input type="file" id="csvFile" accept=".csv,.txt" style="display:none">
+      <div id="importPreview" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <!-- MANUTENÇÃO -->
+  <div id="sec-manutencao" class="section">
+    <div class="sec-bar">
+      <div><div class="sec-title">Manutenção</div><div class="sec-desc">Kanban — arraste para mover entre colunas</div></div>
+      <button class="btn btn-p" id="btnNovaManut" data-role="ADMIN,TECNICO"><i class="fas fa-plus"></i> Nova O.S.</button>
+    </div>
+    <div class="fbar">
+      <span class="flbl">Filtros</span>
+      <select class="fsel" id="mFU"><option value="">Todas as usinas</option></select>
+      <select class="fsel" id="mFT">
+        <option value="">Todos os tipos</option>
+        <option value="prev">Preventiva</option>
+        <option value="corr">Corretiva</option>
+        <option value="pred">Preditiva</option>
+        <option value="plan">Planejada</option>
+      </select>
+      <select class="fsel" id="mFA"><option value="">Todos os anos</option></select>
+    </div>
+    <div class="kb-board" id="kanbanBoard"></div>
+  </div>
+
+  <!-- FINANCEIRO -->
+  <div id="sec-financeiro" class="section">
+    <div class="sec-bar">
+      <div><div class="sec-title">Financeiro</div><div class="sec-desc">Receitas e despesas por usina</div></div>
+      <button class="btn btn-p" id="btnNovoFin" data-role="ADMIN,TECNICO"><i class="fas fa-plus"></i> Novo Lançamento</button>
+    </div>
+    <div class="fbar">
+      <span class="flbl">Filtros</span>
+      <select class="fsel" id="finFU"><option value="">Todas as usinas</option></select>
+      <select class="fsel" id="finFA"></select>
+      <select class="fsel" id="finFT"><option value="">Todos</option><option value="rec">Receitas</option><option value="des">Despesas</option></select>
+    </div>
+    <div class="fin-kpi" id="finKpi"></div>
+    <div class="ch-card" style="margin-bottom:16px">
+      <div class="ch-head"><div><div class="ch-title">Receitas vs Despesas por Mês</div><div class="ch-sub" id="finChartSub">—</div></div></div>
+      <canvas id="finChart" style="max-height:200px"></canvas>
+    </div>
+    <div class="tcard">
+      <div class="thead-bar"><div class="tcard-title">Extrato</div></div>
+      <table><thead><tr><th>Data</th><th>Usina</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor (R$)</th><th>Status</th><th></th></tr></thead><tbody id="finTbl"></tbody></table>
+    </div>
+  </div>
+
+  <!-- COMPARATIVO -->
+  <div id="sec-comparativo" class="section">
+    <div class="sec-bar"><div><div class="sec-title">Comparativo</div><div class="sec-desc">Compare desempenho entre usinas</div></div></div>
+    <div class="fbar">
+      <span class="flbl">Filtros</span>
+      <select class="fsel" id="cAno"></select>
+      <select class="fsel" id="cMes">
+        <option value="">Acumulado</option>
+        <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option>
+        <option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option>
+        <option value="07">Jul</option><option value="08">Ago</option><option value="09">Set</option>
+        <option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
+      </select>
+      <button class="btn btn-p" id="btnCompUpdate"><i class="fas fa-sync-alt"></i> Atualizar</button>
+      <div class="tabbar" style="margin:0">
+        <button class="tabbtn active" data-comptype="line"><i class="fas fa-chart-line"></i> Linha</button>
+        <button class="tabbtn" data-comptype="bar"><i class="fas fa-chart-bar"></i> Barra</button>
+      </div>
+      <button class="btn btn-o btn-sm" id="btnCompPNG"><i class="fas fa-image"></i> PNG</button>
+    </div>
+    <div style="margin-bottom:13px">
+      <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:7px">Selecionar usinas:</div>
+      <div id="compChips" style="display:flex;flex-wrap:wrap;gap:7px"></div>
+    </div>
+    <div id="compGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-bottom:16px"></div>
+    <div class="ch-card">
+      <div class="ch-head"><div><div class="ch-title">Geração Mensal por Usina (MWh)</div><div class="ch-sub">Linha por usina selecionada</div></div></div>
+      <canvas id="compChart" style="max-height:260px"></canvas>
+    </div>
+  </div>
+
+  <!-- RELATÓRIO -->
+  <div id="sec-relatorio" class="section">
+    <div class="sec-bar">
+      <div><div class="sec-title">Relatório</div><div class="sec-desc">Gere relatórios em PDF</div></div>
+    </div>
+    <div class="tabbar" id="relTabBar" style="margin-bottom:18px">
+      <button class="tabbtn active" data-reltab="rGer"><i class="fas fa-bolt"></i> Geração</button>
+      <button class="tabbtn" data-reltab="rFin"><i class="fas fa-dollar-sign"></i> Financeiro</button>
+    </div>
+
+    <!-- Relatório de Geração -->
+    <div id="rGer" class="reltabcontent">
+      <div class="tcard" style="padding:20px;margin-bottom:16px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:13px"><i class="fas fa-info-circle" style="color:var(--p);margin-right:6px"></i>Relatório de Geração Mensal</div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:14px">Gera um PDF com KPIs do mês, comparação real × previsto (geração, irradiação, PR) e histórico de manutenções da usina.</div>
+        <div class="fg">
+          <div class="fgrp"><label class="flabel">Usina <span class="req">*</span></label><select class="fselect" id="relGerUsina"></select></div>
+          <div class="fgrp"><label class="flabel">Ano <span class="req">*</span></label><select class="fselect" id="relGerAno"></select></div>
+          <div class="fgrp"><label class="flabel">Mês <span class="req">*</span></label>
+            <select class="fselect" id="relGerMes">
+              <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Março</option>
+              <option value="04">Abril</option><option value="05">Maio</option><option value="06">Junho</option>
+              <option value="07">Julho</option><option value="08">Agosto</option><option value="09">Setembro</option>
+              <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:9px;margin-top:16px;padding-top:13px;border-top:1px solid var(--bd)">
+          <button class="btn btn-p" id="btnRelGerPDF"><i class="fas fa-file-pdf"></i> Gerar PDF</button>
+        </div>
+      </div>
+      <div class="tcard" style="padding:20px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--t2)">Pré-visualização dos dados</div>
+        <div id="relGerPreview" class="loading"><i class="fas fa-spinner fa-spin"></i> Selecione usina e período</div>
+      </div>
+    </div>
+
+    <!-- Relatório Financeiro -->
+    <div id="rFin" class="reltabcontent" style="display:none">
+      <div class="tcard" style="padding:20px;margin-bottom:16px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:13px"><i class="fas fa-info-circle" style="color:var(--p);margin-right:6px"></i>Relatório Financeiro</div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:14px">Gera um PDF com resumo (receitas, despesas, líquido, margem) e o extrato completo do período.</div>
+        <div class="fg">
+          <div class="fgrp"><label class="flabel">Usina</label><select class="fselect" id="relFinUsina"><option value="">Todas as usinas</option></select></div>
+          <div class="fgrp"><label class="flabel">Ano <span class="req">*</span></label><select class="fselect" id="relFinAno"></select></div>
+          <div class="fgrp"><label class="flabel">Mês (opcional)</label>
+            <select class="fselect" id="relFinMes">
+              <option value="">Ano inteiro</option>
+              <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Março</option>
+              <option value="04">Abril</option><option value="05">Maio</option><option value="06">Junho</option>
+              <option value="07">Julho</option><option value="08">Agosto</option><option value="09">Setembro</option>
+              <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:9px;margin-top:16px;padding-top:13px;border-top:1px solid var(--bd)">
+          <button class="btn btn-p" id="btnRelFinPDF"><i class="fas fa-file-pdf"></i> Gerar PDF</button>
+          <button class="btn btn-o" id="btnRelFinCSV"><i class="fas fa-file-csv"></i> Exportar CSV</button>
+        </div>
+      </div>
+      <div class="tcard" style="padding:20px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--t2)">Resumo do período</div>
+        <div id="relFinPreview" class="loading"><i class="fas fa-spinner fa-spin"></i> Selecione o período</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- USUÁRIOS (admin only) -->
+  <div id="sec-usuarios" class="section">
+    <div class="sec-bar">
+      <div><div class="sec-title">Gerenciamento de Usuários</div><div class="sec-desc">Criar, editar e remover usuários do sistema</div></div>
+      <button class="btn btn-p" id="btnNovoUser"><i class="fas fa-user-plus"></i> Novo Usuário</button>
+    </div>
+    <div class="tcard">
+      <div class="thead-bar"><div class="tcard-title">Usuários cadastrados</div></div>
+      <table>
+        <thead>
+          <tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Último login</th><th>Criado em</th><th></th></tr>
+        </thead>
+        <tbody id="userTbl"></tbody>
+      </table>
+    </div>
+  </div>
+
+  </div>
+</div>
+
+<!-- MODAL USINA -->
+<div class="moverlay" id="mUsina">
+  <div class="modal" style="width:820px">
+    <div class="mh">
+      <div class="mt" id="mUsinaTitle"><i class="fas fa-solar-panel" style="color:var(--p);margin-right:7px"></i>Cadastrar Usina</div>
+      <button class="mclose" data-close="mUsina"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="tabbar">
+      <button class="tabbtn active" data-tab="tGeral">Dados Gerais</button>
+      <button class="tabbtn" data-tab="tComp">Componentes</button>
+      <button class="tabbtn" data-tab="tPrev">Previsão Mensal</button>
+      <button class="tabbtn" data-tab="tSkid">SKIDs</button>
+    </div>
+    <div id="tGeral" class="tabcontent">
+      <div class="fg">
+        <div class="fgrp"><label class="flabel">Nome <span class="req">*</span></label><input class="finput" id="cNome"></div>
+        <div class="fgrp"><label class="flabel">Potência (kWp) <span class="req">*</span></label><input class="finput" type="number" id="cKwp"></div>
+        <div class="fgrp"><label class="flabel">Início de Operação</label><input class="finput" type="date" id="cInicio"></div>
+        <div class="fgrp"><label class="flabel">Localização</label><input class="finput" id="cLocal"></div>
+        <div class="fgrp full"><label class="flabel">Observações</label><textarea class="ftarea" id="cObs"></textarea></div>
+      </div>
+    </div>
+    <div id="tComp" class="tabcontent" style="display:none">
+      <div class="fg">
+        <div class="fgrp"><label class="flabel">Modelo do Módulo</label><input class="finput" id="cModM"></div>
+        <div class="fgrp"><label class="flabel">Qtd. Módulos</label><input class="finput" type="number" id="cModQ"></div>
+        <div class="fgrp"><label class="flabel">Potência módulo (W)</label><input class="finput" type="number" id="cModW"></div>
+        <div class="fgrp"><label class="flabel">Fabricante módulo</label><input class="finput" id="cModF"></div>
+        <div class="fgrp"><label class="flabel">Modelo do Inversor</label><input class="finput" id="cInvM"></div>
+        <div class="fgrp"><label class="flabel">Qtd. Inversores</label><input class="finput" type="number" id="cInvQ"></div>
+        <div class="fgrp"><label class="flabel">Potência inversor (kW)</label><input class="finput" type="number" id="cInvKw"></div>
+        <div class="fgrp"><label class="flabel">Fabricante inversor</label><input class="finput" id="cInvF"></div>
+      </div>
+    </div>
+    <div id="tPrev" class="tabcontent" style="display:none">
+      <div class="alert alert-i"><i class="fas fa-info-circle"></i><div>Previsão anual para a usina (12 meses).</div></div>
+      <table style="width:100%;font-size:12px"><thead><tr><th style="text-align:left;padding:6px">Mês</th><th>Geração Prev. (kWh)</th><th>Irrad. (kWh/m²)</th><th>PR (%)</th></tr></thead><tbody id="prevBody"></tbody></table>
+    </div>
+    <div id="tSkid" class="tabcontent" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
+        <div style="font-size:12px;color:var(--t2)">Adicione SKIDs (subusinas).</div>
+        <button class="btn btn-p btn-sm" id="btnAddSkid"><i class="fas fa-plus"></i> Adicionar SKID</button>
+      </div>
+      <div id="skidList"></div>
+    </div>
+    <input type="hidden" id="cEditId">
+    <div class="mfoot">
+      <button class="btn btn-o" data-close="mUsina">Cancelar</button>
+      <button class="btn btn-p" id="btnSaveUsina"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MANUTENÇÃO -->
+<div class="moverlay" id="mManut">
+  <div class="modal">
+    <div class="mh">
+      <div class="mt" id="mManutTitle"><i class="fas fa-tools" style="color:var(--p);margin-right:7px"></i>Nova O.S.</div>
+      <button class="mclose" data-close="mManut"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="fg">
+      <div class="fgrp"><label class="flabel">Usina <span class="req">*</span></label><select class="fselect" id="muUsina"></select></div>
+      <div class="fgrp"><label class="flabel">Tipo</label>
+        <select class="fselect" id="muTipo">
+          <option value="prev">Preventiva</option>
+          <option value="corr">Corretiva</option>
+          <option value="pred">Preditiva</option>
+          <option value="plan">Planejada</option>
+        </select>
+      </div>
+      <div class="fgrp"><label class="flabel">Status</label>
+        <select class="fselect" id="muStatus">
+          <option value="plan">Planejada</option>
+          <option value="exec">Em Execução</option>
+          <option value="ok">Concluída</option>
+        </select>
+      </div>
+      <div class="fgrp"><label class="flabel">Data</label><input class="finput" type="date" id="muData"></div>
+      <div class="fgrp"><label class="flabel">Responsável</label><input class="finput" id="muResp"></div>
+      <div class="fgrp"><label class="flabel">Local / Componente</label><input class="finput" id="muComp"></div>
+      <div class="fgrp full"><label class="flabel">Título <span class="req">*</span></label><input class="finput" id="muTit"></div>
+      <div class="fgrp full"><label class="flabel">Detalhes</label><textarea class="ftarea" id="muDet"></textarea></div>
+    </div>
+    <input type="hidden" id="muEditId">
+    <div class="mfoot">
+      <button class="btn btn-o" data-close="mManut">Cancelar</button>
+      <button class="btn btn-p" id="btnSaveManut"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FINANCEIRO -->
+<div class="moverlay" id="mFin">
+  <div class="modal">
+    <div class="mh">
+      <div class="mt"><i class="fas fa-dollar-sign" style="color:var(--p);margin-right:7px"></i>Lançamento Financeiro</div>
+      <button class="mclose" data-close="mFin"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="fg">
+      <div class="fgrp"><label class="flabel">Usina <span class="req">*</span></label><select class="fselect" id="finUsina"></select></div>
+      <div class="fgrp"><label class="flabel">Tipo <span class="req">*</span></label>
+        <select class="fselect" id="finTipo"><option value="rec">Receita</option><option value="des">Despesa</option></select>
+      </div>
+      <div class="fgrp"><label class="flabel">Data</label><input class="finput" type="date" id="finData"></div>
+      <div class="fgrp"><label class="flabel">Categoria</label>
+        <div style="display:flex;gap:6px">
+          <select class="fselect" id="finCat" style="flex:1"></select>
+          <button type="button" class="btn btn-o btn-sm" id="btnFinNovaCat" title="Adicionar nova categoria"><i class="fas fa-plus"></i></button>
+        </div>
+      </div>
+      <div class="fgrp"><label class="flabel">Valor (R$) <span class="req">*</span></label><input class="finput" type="number" id="finVal" step="0.01"></div>
+      <div class="fgrp"><label class="flabel">Status</label>
+        <select class="fselect" id="finSt">
+          <option value="pg">Pago/Recebido</option><option value="pend">Pendente</option><option value="prev">Previsto</option>
+        </select>
+      </div>
+      <div class="fgrp full"><label class="flabel">Descrição</label><input class="finput" id="finDesc"></div>
+    </div>
+    <input type="hidden" id="finEditId">
+    <div class="mfoot">
+      <button class="btn btn-o" data-close="mFin">Cancelar</button>
+      <button class="btn btn-p" id="btnSaveFin"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL USUÁRIO -->
+<div class="moverlay" id="mUser">
+  <div class="modal" style="width:560px">
+    <div class="mh">
+      <div class="mt" id="mUserTitle"><i class="fas fa-user-plus" style="color:var(--p);margin-right:7px"></i>Novo Usuário</div>
+      <button class="mclose" data-close="mUser"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="fg">
+      <div class="fgrp full"><label class="flabel">Nome completo <span class="req">*</span></label><input class="finput" id="uNome" placeholder="Ex: Maria Silva"></div>
+      <div class="fgrp"><label class="flabel">E-mail <span class="req">*</span></label><input class="finput" type="email" id="uEmail" placeholder="usuario@exemplo.com"></div>
+      <div class="fgrp"><label class="flabel">Perfil <span class="req">*</span></label>
+        <select class="fselect" id="uRole">
+          <option value="VISUALIZADOR">Visualizador (apenas leitura)</option>
+          <option value="TECNICO">Técnico (lança dados, gera OS)</option>
+          <option value="ADMIN">Administrador (acesso total)</option>
+        </select>
+      </div>
+      <div class="fgrp"><label class="flabel">Senha</label><input class="finput" type="password" id="uSenha" placeholder="Deixe vazio para usar 1234"></div>
+      <div class="fgrp" id="uAtivoWrap" style="display:none">
+        <label class="flabel">Status</label>
+        <select class="fselect" id="uAtivo"><option value="true">Ativo</option><option value="false">Inativo (bloqueado)</option></select>
+      </div>
+      <div class="fgrp full" id="uSenhaHint" style="font-size:11px;color:var(--t3)"></div>
+      <div class="fgrp full" id="uUsinasWrap">
+        <label class="flabel">Usinas acessíveis</label>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:6px" id="uUsinasHelp">Marque as usinas que este usuário pode visualizar. Se nenhuma estiver marcada, verá <strong>todas</strong>.</div>
+        <div id="uUsinasList" style="background:var(--bg);border:1px solid var(--bd);border-radius:var(--r1);padding:10px;max-height:220px;overflow-y:auto"></div>
+      </div>
+    </div>
+    <input type="hidden" id="uEditId">
+    <div class="mfoot">
+      <button class="btn btn-o" data-close="mUser">Cancelar</button>
+      <button class="btn btn-p" id="btnSaveUser"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"><i id="tIcon" class="fas fa-check-circle"></i><span id="tMsg"></span></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

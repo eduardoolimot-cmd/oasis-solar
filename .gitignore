@@ -1,0 +1,50 @@
+# Dependências
+node_modules/
+*.log
+npm-debug.log*
+
+# Variáveis de ambiente
+.env
+.env.local
+.env.*.local
+
+# Builds
+dist/
+build/
+
+# Uploads (gerados em runtime)
+server/uploads/*
+!server/uploads/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Prisma — banco SQLite local (não commitar dados)
+server/prisma/*.db
+server/prisma/*.db-journal
+server/prisma/dev.db*
+
+# Logs
+logs/
+*.log
+
+# Artefatos temporários de teste/dev
+server/test-*.js
+server/smoke-*.js
+server/socket-*.js
+server/srv.out
+server/srv.err
+
+# Schema alternativo (SQLite local) — não vai pra prod
+server/prisma/schema.sqlite.prisma
+
+# Migrations versionadas — em produção usamos db push direto
+server/prisma/migrations/
+
+# Arquivo CSV de exemplo usado no dev
+oasis-solar_*.html
