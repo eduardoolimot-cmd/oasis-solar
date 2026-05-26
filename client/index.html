@@ -222,13 +222,17 @@
   <div id="sec-financeiro" class="section">
     <div class="sec-bar">
       <div><div class="sec-title">Financeiro</div><div class="sec-desc">Receitas e despesas por usina</div></div>
-      <button class="btn btn-p" id="btnNovoFin" data-role="ADMIN,TECNICO"><i class="fas fa-plus"></i> Novo Lançamento</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-o" id="btnImportFin" data-role="ADMIN,TECNICO"><i class="fas fa-file-import"></i> Importar Planilha</button>
+        <button class="btn btn-p" id="btnNovoFin" data-role="ADMIN,TECNICO"><i class="fas fa-plus"></i> Novo Lançamento</button>
+      </div>
     </div>
     <div class="fbar">
       <span class="flbl">Filtros</span>
       <select class="fsel" id="finFU"><option value="">Todas as usinas</option></select>
       <select class="fsel" id="finFA"></select>
       <select class="fsel" id="finFT"><option value="">Todos</option><option value="rec">Receitas</option><option value="des">Despesas</option></select>
+      <select class="fsel" id="finFCat"><option value="">Todas categorias</option></select>
     </div>
     <div class="fin-kpi" id="finKpi"></div>
     <div class="ch-grid" style="grid-template-columns:1.6fr 1fr;margin-bottom:16px">
@@ -493,6 +497,48 @@
     <div class="mfoot">
       <button class="btn btn-o" data-close="mFin">Cancelar</button>
       <button class="btn btn-p" id="btnSaveFin"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IMPORTAR CSV FINANCEIRO -->
+<div class="moverlay" id="mImpFin">
+  <div class="modal" style="width:900px;max-width:96vw">
+    <div class="mh">
+      <div class="mt"><i class="fas fa-file-import" style="color:var(--p);margin-right:7px"></i>Importar Planilha Financeira</div>
+      <button class="mclose" data-close="mImpFin"><i class="fas fa-times"></i></button>
+    </div>
+
+    <div id="impFinStep1">
+      <div class="alert alert-i"><i class="fas fa-info-circle"></i><div><strong>Formato esperado:</strong> primeira linha com cabeçalho <code>USINA;ITEM;Categoria;JANEIRO;FEVEREIRO;...;DEZEMBRO</code>. <strong>ITEM</strong> aceita <code>Receita</code>, <code>Despesas</code> ou <code>Financiamento</code> (Financiamento conta como despesa).</div></div>
+
+      <div class="fg">
+        <div class="fgrp"><label class="flabel">Ano dos dados <span class="req">*</span></label><input class="finput" type="number" id="impFinAno" placeholder="Ex: 2025" min="2000" max="2099"></div>
+        <div class="fgrp"><label class="flabel">Modo de importação</label>
+          <select class="fselect" id="impFinModo">
+            <option value="mesclar">Mesclar — atualiza se já existir (recomendado)</option>
+            <option value="substituir">Substituir — apaga lançamentos antigos das mesmas categorias no ano</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="fgrp" style="margin-top:14px">
+        <label class="flabel">Arquivo CSV <span class="req">*</span></label>
+        <div class="import-zone" id="impFinZone">
+          <i class="fas fa-file-upload"></i>
+          <strong>Clique ou arraste o CSV</strong><br>
+          <small>Separador ponto e vírgula (;)</small>
+        </div>
+        <input type="file" id="impFinFile" accept=".csv,.txt" style="display:none">
+      </div>
+    </div>
+
+    <div id="impFinStep2" style="display:none"></div>
+
+    <div class="mfoot">
+      <button class="btn btn-o" data-close="mImpFin">Fechar</button>
+      <button class="btn btn-er" id="btnImpFinCancel" style="display:none">← Voltar</button>
+      <button class="btn btn-p" id="btnImpFinConfirm" style="display:none"><i class="fas fa-check"></i> Confirmar Importação</button>
     </div>
   </div>
 </div>

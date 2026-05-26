@@ -12,6 +12,8 @@ import {
 } from '../middleware/auth.js';
 import { emit } from '../realtime.js';
 import { aplicarFiltroUsinas } from '../lib/access.js';
+import { uploadCSV } from '../lib/upload.js';
+import { parseFinanceiroCSV } from '../lib/csv-fin.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -67,6 +69,7 @@ router.get(
     const where = {};
     if (f.usinaId) where.usinaId = f.usinaId;
     if (f.tipo) where.tipo = f.tipo;
+    if (req.query.cat) where.cat = req.query.cat;
     if (f.st) where.st = f.st;
     if (f.ano) {
       where.data = {
@@ -243,6 +246,149 @@ router.delete(
 
     emit('financeiro:deleted', { id: req.params.id });
     res.json({ ok: true });
+  }),
+);
+
+// ---------- POST /api/financeiro/importar/preview ----------
+// Faz o parse do CSV sem persistir nada. Retorna preview + diagnósticos.
+router.post(
+  '/importar/preview',
+  requireAdminOrTecnico,
+  uploadCSV.single('file'),
+  asyncRoute(async (req, res) => {
+    if (!req.file) throw httpErrors.badRequest('Arquivo CSV ausente');
+
+    let parsed;
+    try {
+      parsed = parseFinanceiroCSV(req.file.buffer);
+    } catch (e) {
+      throw httpErrors.badRequest(`Falha no parse: ${e.message}`);
+    }
+
+    // Casamento usina (nome) → id
+    const usinasDB = await prisma.usina.findMany({ select: { id: true, nome: true } });
+    const mapNome = new Map(usinasDB.map((u) => [u.nome, u.id]));
+    const usinasNaoEncontradas = parsed.resumo.usinasDoArquivo.filter(
+      (n) => !mapNome.has(n),
+    );
+
+    res.json({
+      ok: parsed.itens.length > 0,
+      resumo: parsed.resumo,
+      linhasIgnoradas: parsed.linhasIgnoradas,
+      usinasNaoEncontradas,
+      itens: parsed.itens, // payload completo, frontend usa pra editar/confirmar
+    });
+  }),
+);
+
+// ---------- POST /api/financeiro/importar ----------
+// Persiste os lançamentos (espera body com {ano, itens, modo: 'substituir'|'mesclar'})
+router.post(
+  '/importar',
+  requireAdminOrTecnico,
+  asyncRoute(async (req, res) => {
+    const { ano, itens, modo } = req.body || {};
+    if (!ano || !/^\d{4}$/.test(String(ano))) {
+      throw httpErrors.badRequest('Ano inválido (deve ser AAAA)');
+    }
+    if (!Array.isArray(itens) || itens.length === 0) {
+      throw httpErrors.badRequest('Nenhum item para importar');
+    }
+
+    // Resolve usinas
+    const usinasDB = await prisma.usina.findMany({ select: { id: true, nome: true } });
+    const mapNome = new Map(usinasDB.map((u) => [u.nome, u.id]));
+
+    // Se modo='substituir', remove lançamentos antigos do ano para essas usinas + categorias
+    if (modo === 'substituir') {
+      const usinaIds = [...new Set(itens.map((i) => mapNome.get(i.usina)).filter(Boolean))];
+      const categorias = [...new Set(itens.map((i) => i.categoria))];
+      const del = await prisma.financeiro.deleteMany({
+        where: {
+          usinaId: { in: usinaIds },
+          cat: { in: categorias },
+          data: {
+            gte: new Date(`${ano}-01-01T00:00:00.000Z`),
+            lt: new Date(`${parseInt(ano) + 1}-01-01T00:00:00.000Z`),
+          },
+        },
+      });
+      console.log(`[import-fin] removidos ${del.count} lançamentos antigos`);
+    }
+
+    let added = 0;
+    let updated = 0;
+    const erros = [];
+
+    for (const it of itens) {
+      const usinaId = mapNome.get(it.usina);
+      if (!usinaId) {
+        erros.push({ ...it, erro: `Usina "${it.usina}" não encontrada` });
+        continue;
+      }
+      const mes = parseInt(it.mes);
+      if (!mes || mes < 1 || mes > 12) {
+        erros.push({ ...it, erro: `Mês inválido: ${it.mes}` });
+        continue;
+      }
+      const data = new Date(`${ano}-${String(mes).padStart(2, '0')}-01T00:00:00.000Z`);
+      const tipo = it.tipo === 'rec' ? 'rec' : 'des';
+
+      try {
+        if (modo === 'mesclar') {
+          // upsert manual por (usina, cat, mês, tipo)
+          const existente = await prisma.financeiro.findFirst({
+            where: { usinaId, cat: it.categoria, tipo, data },
+            select: { id: true },
+          });
+          if (existente) {
+            await prisma.financeiro.update({
+              where: { id: existente.id },
+              data: { val: it.val },
+            });
+            updated++;
+            continue;
+          }
+        }
+        // create
+        await prisma.financeiro.create({
+          data: {
+            usinaId, tipo,
+            data,
+            cat: it.categoria,
+            desc: 'Importado via planilha financeira',
+            val: it.val,
+            st: 'pg',
+            criadoPorId: req.user.id,
+          },
+        });
+        added++;
+      } catch (e) {
+        erros.push({ ...it, erro: e.message });
+      }
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.id,
+        acao: 'import',
+        recurso: 'Financeiro',
+        payload: JSON.stringify({ ano, modo, added, updated, erros: erros.length }),
+      },
+    });
+
+    if (added > 0 || updated > 0) {
+      emit('financeiro:batch', { ano, added, updated });
+    }
+
+    res.json({
+      ok: true,
+      ano, modo,
+      added, updated,
+      erros,
+      totalProcessado: itens.length,
+    });
   }),
 );
 

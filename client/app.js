@@ -1013,13 +1013,23 @@ async function renderFinanceiro() {
   const fu = $('finFU').value;
   const fa = $('finFA').value;
   const ft = $('finFT').value;
+  const fcat = $('finFCat')?.value || '';
   const qs = new URLSearchParams();
   if (fu) qs.set('usinaId', fu);
   if (fa) qs.set('ano', fa);
   if (ft) qs.set('tipo', ft);
+  if (fcat) qs.set('cat', fcat);
 
   state.financeiro = await api.get('/financeiro?' + qs);
-  const sum = await api.get('/financeiro/sumario?' + qs);
+  // Sumário SEM filtro de categoria (pra mostrar todos os tipos no gráfico)
+  const qsSum = new URLSearchParams();
+  if (fu) qsSum.set('usinaId', fu);
+  if (fa) qsSum.set('ano', fa);
+  if (ft) qsSum.set('tipo', ft);
+  const sum = await api.get('/financeiro/sumario?' + qsSum);
+
+  // Popula filtro de categorias com as que vêm do sumário (recebidas + despesas)
+  popularFiltroCategorias(sum.porCategoria);
 
   const t = sum.totais;
   $('finKpi').innerHTML = `
@@ -1047,6 +1057,19 @@ async function renderFinanceiro() {
       </tr>`).join('')
     : '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:22px">Nenhum lançamento</td></tr>';
   $$('[data-del-fin]').forEach((b) => b.addEventListener('click', () => deletarFin(b.dataset.delFin)));
+}
+
+function popularFiltroCategorias(porCategoria) {
+  const sel = $('finFCat');
+  if (!sel) return;
+  const cur = sel.value;
+  const todas = new Set();
+  (porCategoria?.despesas || []).forEach((c) => todas.add(c.categoria));
+  (porCategoria?.receitas || []).forEach((c) => todas.add(c.categoria));
+  const ord = [...todas].sort();
+  sel.innerHTML = '<option value="">Todas categorias</option>' +
+    ord.map((c) => `<option value="${c}">${c}</option>`).join('');
+  if (cur && ord.includes(cur)) sel.value = cur;
 }
 
 function renderFinChart(mensal) {
@@ -1242,6 +1265,173 @@ async function deletarFin(id) {
     await renderFinanceiro();
   } catch (e) {
     toast(e.message, 'er');
+  }
+}
+
+// =====================================================
+// FINANCEIRO — Importação CSV
+// =====================================================
+let _impFinPreview = null;
+
+function abrirImportFin() {
+  _impFinPreview = null;
+  $('impFinStep1').style.display = 'block';
+  $('impFinStep2').style.display = 'none';
+  $('impFinStep2').innerHTML = '';
+  $('btnImpFinConfirm').style.display = 'none';
+  $('btnImpFinCancel').style.display = 'none';
+  $('impFinAno').value = new Date().getFullYear();
+  $('impFinModo').value = 'mesclar';
+  $('impFinFile').value = '';
+  openM('mImpFin');
+}
+
+function setupImportFin() {
+  const zone = $('impFinZone');
+  const inp = $('impFinFile');
+  if (!zone || !inp) return;
+
+  zone.addEventListener('click', () => inp.click());
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('drag');
+    if (e.dataTransfer.files[0]) processarCSVFin(e.dataTransfer.files[0]);
+  });
+  inp.addEventListener('change', (e) => {
+    if (e.target.files[0]) processarCSVFin(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  $('btnImpFinCancel').addEventListener('click', () => {
+    $('impFinStep1').style.display = 'block';
+    $('impFinStep2').style.display = 'none';
+    $('btnImpFinConfirm').style.display = 'none';
+    $('btnImpFinCancel').style.display = 'none';
+    _impFinPreview = null;
+  });
+  $('btnImpFinConfirm').addEventListener('click', confirmarImportFin);
+}
+
+async function processarCSVFin(file) {
+  const ano = $('impFinAno').value;
+  if (!ano || !/^\d{4}$/.test(ano)) {
+    toast('Informe o ano (4 dígitos) antes de enviar o arquivo', 'er');
+    return;
+  }
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await api.upload('/financeiro/importar/preview', fd);
+    _impFinPreview = { ...r, ano };
+    renderImportFinPreview(r, ano);
+  } catch (e) {
+    toast(e.message, 'er');
+  }
+}
+
+function renderImportFinPreview(r, ano) {
+  const resumo = r.resumo;
+  const usinasOk = (resumo.usinasDoArquivo || []).filter((u) => !r.usinasNaoEncontradas.includes(u));
+
+  // Tabela com totais por usina/categoria
+  const linhasUsina = Object.entries(resumo.porUsina)
+    .map(([usina, t]) => {
+      const naoEncontrada = r.usinasNaoEncontradas.includes(usina);
+      return `<tr style="${naoEncontrada ? 'background:var(--erl)' : ''}">
+        <td>${naoEncontrada ? '⚠️ ' : '✓ '}${usina}</td>
+        <td style="color:var(--ok)">${fmtBRL(t.receita)}</td>
+        <td style="color:var(--er)">${fmtBRL(t.despesa)}</td>
+        <td style="font-weight:700;color:${t.receita - t.despesa >= 0 ? 'var(--p)' : 'var(--er)'}">${fmtBRL(t.receita - t.despesa)}</td>
+      </tr>`;
+    }).join('');
+
+  const linhasCat = Object.entries(resumo.porCategoria)
+    .sort((a, b) => (b[1].receita + b[1].despesa) - (a[1].receita + a[1].despesa))
+    .map(([cat, t]) => `<tr>
+      <td>${cat}</td>
+      <td style="color:var(--ok)">${fmtBRL(t.receita)}</td>
+      <td style="color:var(--er)">${fmtBRL(t.despesa)}</td>
+      <td class="td2">${t.qtd}</td>
+    </tr>`).join('');
+
+  const erros = r.linhasIgnoradas.length
+    ? `<div class="alert alert-wn" style="margin-top:13px"><i class="fas fa-exclamation-triangle"></i><div><strong>${r.linhasIgnoradas.length} linha(s) ignorada(s):</strong><br>${r.linhasIgnoradas.slice(0, 5).map((e) => `Linha ${e.linha}: ${e.motivo}`).join('<br>')}${r.linhasIgnoradas.length > 5 ? '<br>...' : ''}</div></div>`
+    : '';
+
+  const alertaUsinas = r.usinasNaoEncontradas.length
+    ? `<div class="alert alert-er" style="margin-top:13px"><i class="fas fa-times-circle"></i><div><strong>${r.usinasNaoEncontradas.length} usina(s) não cadastrada(s)</strong> — serão IGNORADAS na importação:<br>${r.usinasNaoEncontradas.map((n) => `• ${n}`).join('<br>')}<br><small>Cadastre essas usinas primeiro em <strong>Cadastro de Usinas</strong>.</small></div></div>`
+    : '';
+
+  $('impFinStep1').style.display = 'none';
+  $('impFinStep2').style.display = 'block';
+  $('impFinStep2').innerHTML = `
+    <div class="alert alert-ok"><i class="fas fa-check-circle"></i><div><strong>Arquivo lido com sucesso!</strong> ${resumo.totalLinhas} linhas processadas → ${resumo.totalLancamentos} lançamentos gerados (1 por categoria/mês — valores duplicados foram somados).</div></div>
+
+    <div class="fin-kpi" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+      <div class="fin-card"><div class="fin-lbl">Receitas</div><div class="fin-val" style="color:var(--ok);font-size:18px">${fmtBRL(resumo.totaisReceita)}</div></div>
+      <div class="fin-card"><div class="fin-lbl">Despesas</div><div class="fin-val" style="color:var(--er);font-size:18px">${fmtBRL(resumo.totaisDespesa)}</div></div>
+      <div class="fin-card hl"><div class="fin-lbl">Líquido</div><div class="fin-val" style="color:${resumo.liquido >= 0 ? 'var(--p)' : 'var(--er)'};font-size:18px">${fmtBRL(resumo.liquido)}</div></div>
+    </div>
+
+    <div class="ch-grid" style="grid-template-columns:1fr 1fr">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px"><i class="fas fa-solar-panel"></i> Por usina</div>
+        <div class="tcard" style="margin:0">
+          <table><thead><tr><th>Usina</th><th>Receita</th><th>Despesa</th><th>Líquido</th></tr></thead><tbody>${linhasUsina}</tbody></table>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px"><i class="fas fa-tags"></i> Por categoria</div>
+        <div class="tcard" style="margin:0">
+          <table><thead><tr><th>Categoria</th><th>Rec.</th><th>Desp.</th><th>Linhas</th></tr></thead><tbody>${linhasCat}</tbody></table>
+        </div>
+      </div>
+    </div>
+
+    ${alertaUsinas}
+    ${erros}
+
+    <div class="alert alert-i" style="margin-top:13px"><i class="fas fa-info-circle"></i><div>
+      <strong>Ano configurado: ${ano}</strong> · <strong>Modo: ${$('impFinModo').value === 'mesclar' ? 'Mesclar (atualizar)' : 'Substituir (apagar antigos)'}</strong>
+      <br>Vai gerar <strong>${(resumo.totalLancamentos - r.linhasIgnoradas.length) || resumo.totalLancamentos} lançamentos</strong> em ${ano}.
+      <br><em>Confira os totais acima antes de confirmar.</em>
+    </div></div>
+  `;
+  $('btnImpFinConfirm').style.display = '';
+  $('btnImpFinCancel').style.display = '';
+}
+
+async function confirmarImportFin() {
+  if (!_impFinPreview) return;
+  const { ano, itens } = _impFinPreview;
+  const modo = $('impFinModo').value;
+
+  // Remove usinas não encontradas
+  const itensValidos = itens.filter((it) => !_impFinPreview.usinasNaoEncontradas.includes(it.usina));
+  if (!itensValidos.length) {
+    toast('Nenhum item válido para importar', 'er');
+    return;
+  }
+
+  if (modo === 'substituir') {
+    const cats = [...new Set(itensValidos.map((i) => i.categoria))];
+    if (!confirm(`Vai APAGAR todos os lançamentos antigos de ${ano} nessas ${cats.length} categorias antes de inserir os novos. Continuar?`)) return;
+  }
+
+  $('btnImpFinConfirm').disabled = true;
+  $('btnImpFinConfirm').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...';
+  try {
+    const r = await api.post('/financeiro/importar', { ano, itens: itensValidos, modo });
+    toast(`Importação OK: ${r.added} novos, ${r.updated} atualizados${r.erros.length ? `, ${r.erros.length} erros` : ''}`, 'ok');
+    closeM('mImpFin');
+    await renderFinanceiro();
+  } catch (e) {
+    toast(e.message, 'er');
+  } finally {
+    $('btnImpFinConfirm').disabled = false;
+    $('btnImpFinConfirm').innerHTML = '<i class="fas fa-check"></i> Confirmar Importação';
   }
 }
 
@@ -1784,7 +1974,9 @@ function setupEventos() {
   $('btnNovoFin').addEventListener('click', abrirNovoFin);
   $('btnSaveFin').addEventListener('click', salvarFin);
   $('btnFinNovaCat').addEventListener('click', adicionarNovaCategoriaFin);
-  ['finFU', 'finFA', 'finFT'].forEach((id) => $(id).addEventListener('change', renderFinanceiro));
+  $('btnImportFin').addEventListener('click', abrirImportFin);
+  setupImportFin();
+  ['finFU', 'finFA', 'finFT', 'finFCat'].forEach((id) => $(id).addEventListener('change', renderFinanceiro));
   // Toggle Despesas ↔ Receitas no gráfico de categorias
   $$('[data-fincat]').forEach((btn) =>
     btn.addEventListener('click', () => {
