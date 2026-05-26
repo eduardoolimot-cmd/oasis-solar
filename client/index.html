@@ -231,9 +231,21 @@
       <select class="fsel" id="finFT"><option value="">Todos</option><option value="rec">Receitas</option><option value="des">Despesas</option></select>
     </div>
     <div class="fin-kpi" id="finKpi"></div>
-    <div class="ch-card" style="margin-bottom:16px">
-      <div class="ch-head"><div><div class="ch-title">Receitas vs Despesas por Mês</div><div class="ch-sub" id="finChartSub">—</div></div></div>
-      <canvas id="finChart" style="max-height:200px"></canvas>
+    <div class="ch-grid" style="grid-template-columns:1.6fr 1fr;margin-bottom:16px">
+      <div class="ch-card">
+        <div class="ch-head"><div><div class="ch-title">Receitas vs Despesas por Mês</div><div class="ch-sub" id="finChartSub">—</div></div></div>
+        <canvas id="finChart" style="max-height:230px"></canvas>
+      </div>
+      <div class="ch-card">
+        <div class="ch-head">
+          <div><div class="ch-title">Gastos por Categoria</div><div class="ch-sub" id="finCatSub">Distribuição das despesas</div></div>
+          <div class="tabbar" style="margin:0">
+            <button class="tabbtn active" data-fincat="des" title="Mostrar despesas"><i class="fas fa-arrow-down"></i></button>
+            <button class="tabbtn" data-fincat="rec" title="Mostrar receitas"><i class="fas fa-arrow-up"></i></button>
+          </div>
+        </div>
+        <canvas id="finCatChart" style="max-height:230px"></canvas>
+      </div>
     </div>
     <div class="tcard">
       <div class="thead-bar"><div class="tcard-title">Extrato</div></div>

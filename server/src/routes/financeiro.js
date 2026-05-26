@@ -114,6 +114,19 @@ router.get(
       else desMes[m] += r.val;
     }
 
+    // Agregação por categoria (separa receitas e despesas)
+    const acc = (tipo) => {
+      const grupos = {};
+      for (const r of all) {
+        if (r.tipo !== tipo) continue;
+        const cat = r.cat || 'Sem categoria';
+        if (!grupos[cat]) grupos[cat] = { categoria: cat, total: 0, qtd: 0 };
+        grupos[cat].total += r.val;
+        grupos[cat].qtd += 1;
+      }
+      return Object.values(grupos).sort((a, b) => b.total - a.total);
+    };
+
     res.json({
       ano: f.ano ?? null,
       usinaId: f.usinaId ?? null,
@@ -126,6 +139,10 @@ router.get(
         qtdDespesas: all.filter((x) => x.tipo === 'des').length,
       },
       mensal: { receitas: recMes, despesas: desMes },
+      porCategoria: {
+        despesas: acc('des'),
+        receitas: acc('rec'),
+      },
     });
   }),
 );

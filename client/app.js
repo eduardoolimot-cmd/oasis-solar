@@ -18,7 +18,8 @@ const state = {
   financeiro: [],
   notificacoes: [],
   socket: null,
-  charts: { main: null, pie: null, fin: null, irrad: null, yieldCh: null, comp: null },
+  charts: { main: null, pie: null, fin: null, finCat: null, irrad: null, yieldCh: null, comp: null },
+  finCatTipo: 'des', // 'des' = despesas (default), 'rec' = receitas
   dragManutId: null,
 };
 
@@ -1029,6 +1030,7 @@ async function renderFinanceiro() {
   `;
   $('finChartSub').textContent = fa || 'Todos';
   renderFinChart(sum.mensal);
+  renderFinCatChart(sum.porCategoria, state.finCatTipo);
 
   const canEdit = ['ADMIN', 'TECNICO'].includes(state.user.role);
   $('finTbl').innerHTML = state.financeiro.length
@@ -1063,6 +1065,94 @@ function renderFinChart(mensal) {
       responsive: true,
       plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 11, padding: 12 } } },
       scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.04)' }, ticks: { callback: (v) => 'R$ ' + v.toLocaleString('pt-BR') } } },
+    },
+  });
+}
+
+const FIN_CAT_COLORS = [
+  '#0057B8', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#00B4D8',
+  '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16', '#A855F7',
+];
+
+function renderFinCatChart(porCategoria, tipo = 'des') {
+  const ctx = $('finCatChart');
+  if (!ctx) return;
+  if (state.charts.finCat) state.charts.finCat.destroy();
+
+  const dados = (porCategoria?.[tipo === 'rec' ? 'receitas' : 'despesas']) || [];
+  const subEl = $('finCatSub');
+  if (subEl) {
+    const totalSum = dados.reduce((s, x) => s + x.total, 0);
+    subEl.textContent = `${tipo === 'rec' ? 'Receitas' : 'Despesas'} — Total ${fmtBRL(totalSum)} em ${dados.length} categoria${dados.length === 1 ? '' : 's'}`;
+  }
+
+  if (!dados.length) {
+    // Desenha um gráfico vazio com mensagem
+    state.charts.finCat = new Chart(ctx.getContext('2d'), {
+      type: 'doughnut',
+      data: { labels: ['Sem dados'], datasets: [{ data: [1], backgroundColor: ['#EBF2FC'], borderWidth: 0 }] },
+      options: {
+        responsive: true,
+        cutout: '62%',
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false },
+        },
+      },
+    });
+    return;
+  }
+
+  const total = dados.reduce((s, x) => s + x.total, 0);
+  state.charts.finCat = new Chart(ctx.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: dados.map((c) => c.categoria),
+      datasets: [
+        {
+          data: dados.map((c) => c.total),
+          backgroundColor: dados.map((_, i) => FIN_CAT_COLORS[i % FIN_CAT_COLORS.length]),
+          borderColor: '#fff',
+          borderWidth: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      cutout: '60%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            font: { size: 10 },
+            boxWidth: 10,
+            padding: 6,
+            generateLabels: (chart) => {
+              const ds = chart.data.datasets[0];
+              return chart.data.labels.map((label, i) => {
+                const val = ds.data[i];
+                const pct = total ? ((val / total) * 100).toFixed(1) : 0;
+                return {
+                  text: `${label} — ${pct}%`,
+                  fillStyle: ds.backgroundColor[i],
+                  strokeStyle: ds.backgroundColor[i],
+                  index: i,
+                };
+              });
+            },
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: (item) => {
+              const val = item.parsed;
+              const pct = total ? ((val / total) * 100).toFixed(1) : 0;
+              const qtd = dados[item.dataIndex]?.qtd || 0;
+              return ` ${fmtBRL(val)} (${pct}%) · ${qtd} lançamento${qtd === 1 ? '' : 's'}`;
+            },
+          },
+        },
+      },
     },
   });
 }
@@ -1695,6 +1785,14 @@ function setupEventos() {
   $('btnSaveFin').addEventListener('click', salvarFin);
   $('btnFinNovaCat').addEventListener('click', adicionarNovaCategoriaFin);
   ['finFU', 'finFA', 'finFT'].forEach((id) => $(id).addEventListener('change', renderFinanceiro));
+  // Toggle Despesas ↔ Receitas no gráfico de categorias
+  $$('[data-fincat]').forEach((btn) =>
+    btn.addEventListener('click', () => {
+      $$('[data-fincat]').forEach((b) => b.classList.toggle('active', b === btn));
+      state.finCatTipo = btn.dataset.fincat;
+      renderFinanceiro();
+    }),
+  );
 
   // Notificações
   $('btnNotif').addEventListener('click', () => $('notifPanel').classList.toggle('open'));
