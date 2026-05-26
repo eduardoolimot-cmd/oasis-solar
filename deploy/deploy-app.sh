@@ -70,16 +70,16 @@ echo "🗄️  Aplicando schema no banco..."
 npx prisma generate
 npx prisma db push --accept-data-loss
 
-# 5) Rodar seeds
+# 5) Rodar seeds (SEED_FORCE=true necessário pois NODE_ENV=production)
 echo ""
 echo "🌱 Populando banco com dados reais..."
-node prisma/seed.js              # cria usuários
+SEED_FORCE=true node prisma/seed.js              # cria usuários
 echo ""
-node prisma/seed-real.js         # cria as 7 usinas iniciais
+SEED_FORCE=true node prisma/seed-real.js         # cria as 7 usinas iniciais
 echo ""
-node prisma/seed-geracao.js      # cria 5 usinas com SKIDs + 104 lançamentos 2026
+SEED_FORCE=true node prisma/seed-geracao.js      # cria 5 usinas com SKIDs + 104 lançamentos 2026
 echo ""
-node prisma/seed-geracao-2025.js # 60 lançamentos 2025
+SEED_FORCE=true node prisma/seed-geracao-2025.js # 60 lançamentos 2025
 
 # 6) Iniciar com PM2
 echo ""
