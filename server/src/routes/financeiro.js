@@ -107,7 +107,13 @@ router.get(
     const f = financeiroFiltroSchema.parse(req.query);
     const where = {};
     if (f.usinaId) where.usinaId = f.usinaId;
-    if (f.ano) {
+
+    // Janela temporal: ano + mês opcional (mesma lógica do GET /)
+    if (f.ano && f.mes) {
+      const ini = new Date(`${f.ano}-${f.mes}-01T00:00:00.000Z`);
+      const fim = new Date(ini); fim.setUTCMonth(fim.getUTCMonth() + 1);
+      where.data = { gte: ini, lt: fim };
+    } else if (f.ano) {
       where.data = {
         gte: new Date(`${f.ano}-01-01T00:00:00.000Z`),
         lt: new Date(`${parseInt(f.ano) + 1}-01-01T00:00:00.000Z`),
