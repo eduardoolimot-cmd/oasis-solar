@@ -15,6 +15,7 @@
     "db:seed-real": "node prisma/seed-real.js",
     "db:seed-geracao": "node prisma/seed-geracao.js",
     "db:seed-geracao-2025": "node prisma/seed-geracao-2025.js",
+    "db:wipe-fin": "node prisma/wipe-financeiro.js",
     "db:studio": "prisma studio"
   },
   "prisma": {
