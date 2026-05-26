@@ -101,7 +101,8 @@ export const manutencaoStatusSchema = z.object({
 });
 
 // ---------- Financeiro ----------
-const FIN_TIPOS = ['rec', 'des'];
+// 'rec' = Receita, 'des' = Despesa, 'fin' = Financiamento (tipo próprio)
+const FIN_TIPOS = ['rec', 'des', 'fin'];
 const FIN_STATUS = ['pg', 'pend', 'prev'];
 
 export const financeiroSchema = z.object({
@@ -122,6 +123,7 @@ export const financeiroFiltroSchema = z.object({
   tipo: z.enum(FIN_TIPOS).optional(),
   st: z.enum(FIN_STATUS).optional(),
   ano: z.string().regex(/^\d{4}$/).optional(),
+  mes: z.string().regex(/^(0[1-9]|1[0-2])$/).optional(),
 });
 
 // ---------- Notificação ----------

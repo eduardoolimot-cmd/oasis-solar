@@ -69,9 +69,22 @@ router.get(
     const where = {};
     if (f.usinaId) where.usinaId = f.usinaId;
     if (f.tipo) where.tipo = f.tipo;
-    if (req.query.cat) where.cat = req.query.cat;
     if (f.st) where.st = f.st;
-    if (f.ano) {
+
+    // Filtro multi-categoria: ?cats=A,B,C ou ?cats=A&cats=B
+    let cats = req.query.cats;
+    if (typeof cats === 'string' && cats.length) {
+      cats = cats.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+    if (Array.isArray(cats) && cats.length) where.cat = { in: cats };
+    else if (req.query.cat) where.cat = req.query.cat; // compat single
+
+    // Janela de tempo (ano + mês opcional)
+    if (f.ano && f.mes) {
+      const ini = new Date(`${f.ano}-${f.mes}-01T00:00:00.000Z`);
+      const fim = new Date(ini); fim.setUTCMonth(fim.getUTCMonth() + 1);
+      where.data = { gte: ini, lt: fim };
+    } else if (f.ano) {
       where.data = {
         gte: new Date(`${f.ano}-01-01T00:00:00.000Z`),
         lt: new Date(`${parseInt(f.ano) + 1}-01-01T00:00:00.000Z`),
@@ -105,19 +118,23 @@ router.get(
     const all = await prisma.financeiro.findMany({ where });
     const rec = all.filter((x) => x.tipo === 'rec').reduce((s, x) => s + x.val, 0);
     const des = all.filter((x) => x.tipo === 'des').reduce((s, x) => s + x.val, 0);
-    const liq = rec - des;
-    const margem = rec ? +(((liq / rec) * 100).toFixed(2)) : 0;
+    const fin = all.filter((x) => x.tipo === 'fin').reduce((s, x) => s + x.val, 0);
+    const liqOperacional = rec - des;                   // sem financiamento
+    const liqTotal = rec - des - fin;                   // com financiamento
+    const margem = rec ? +(((liqOperacional / rec) * 100).toFixed(2)) : 0;
 
-    // Receitas e despesas por mês
+    // Por mês: receitas, despesas e financiamentos
     const recMes = Array.from({ length: 12 }, () => 0);
     const desMes = Array.from({ length: 12 }, () => 0);
+    const finMes = Array.from({ length: 12 }, () => 0);
     for (const r of all) {
       const m = new Date(r.data).getUTCMonth();
       if (r.tipo === 'rec') recMes[m] += r.val;
-      else desMes[m] += r.val;
+      else if (r.tipo === 'des') desMes[m] += r.val;
+      else if (r.tipo === 'fin') finMes[m] += r.val;
     }
 
-    // Agregação por categoria (separa receitas e despesas)
+    // Agregação por categoria
     const acc = (tipo) => {
       const grupos = {};
       for (const r of all) {
@@ -132,19 +149,25 @@ router.get(
 
     res.json({
       ano: f.ano ?? null,
+      mes: f.mes ?? null,
       usinaId: f.usinaId ?? null,
       totais: {
         receitas: rec,
         despesas: des,
-        liquido: liq,
+        financiamentos: fin,
+        liquido: liqOperacional,         // mantém nome antigo (compat)
+        liquidoOperacional: liqOperacional,
+        liquidoTotal: liqTotal,
         margem,
         qtdReceitas: all.filter((x) => x.tipo === 'rec').length,
         qtdDespesas: all.filter((x) => x.tipo === 'des').length,
+        qtdFinanciamentos: all.filter((x) => x.tipo === 'fin').length,
       },
-      mensal: { receitas: recMes, despesas: desMes },
+      mensal: { receitas: recMes, despesas: desMes, financiamentos: finMes },
       porCategoria: {
-        despesas: acc('des'),
         receitas: acc('rec'),
+        despesas: acc('des'),
+        financiamentos: acc('fin'),
       },
     });
   }),
@@ -288,7 +311,7 @@ router.post(
   '/importar',
   requireAdminOrTecnico,
   asyncRoute(async (req, res) => {
-    const { ano, itens, modo } = req.body || {};
+    const { ano, itens, modo, usinaOverrideId } = req.body || {};
     if (!ano || !/^\d{4}$/.test(String(ano))) {
       throw httpErrors.badRequest('Ano inválido (deve ser AAAA)');
     }
@@ -300,9 +323,21 @@ router.post(
     const usinasDB = await prisma.usina.findMany({ select: { id: true, nome: true } });
     const mapNome = new Map(usinasDB.map((u) => [u.nome, u.id]));
 
+    // Se foi escolhida uma usina override, valida que existe
+    let usinaOverrideObj = null;
+    if (usinaOverrideId) {
+      usinaOverrideObj = usinasDB.find((u) => u.id === usinaOverrideId);
+      if (!usinaOverrideObj) throw httpErrors.badRequest('Usina destino inválida');
+    }
+
+    // Helper que resolve a usina final de um item:
+    //   1) Se há override, todos vão pra ele
+    //   2) Senão, usa o nome do CSV
+    const resolveUsina = (it) => usinaOverrideObj?.id || mapNome.get(it.usina);
+
     // Se modo='substituir', remove lançamentos antigos do ano para essas usinas + categorias
     if (modo === 'substituir') {
-      const usinaIds = [...new Set(itens.map((i) => mapNome.get(i.usina)).filter(Boolean))];
+      const usinaIds = [...new Set(itens.map(resolveUsina).filter(Boolean))];
       const categorias = [...new Set(itens.map((i) => i.categoria))];
       const del = await prisma.financeiro.deleteMany({
         where: {
@@ -322,7 +357,7 @@ router.post(
     const erros = [];
 
     for (const it of itens) {
-      const usinaId = mapNome.get(it.usina);
+      const usinaId = resolveUsina(it);
       if (!usinaId) {
         erros.push({ ...it, erro: `Usina "${it.usina}" não encontrada` });
         continue;
@@ -333,7 +368,8 @@ router.post(
         continue;
       }
       const data = new Date(`${ano}-${String(mes).padStart(2, '0')}-01T00:00:00.000Z`);
-      const tipo = it.tipo === 'rec' ? 'rec' : 'des';
+      // Preserva o tipo original do parser ('rec'|'des'|'fin')
+      const tipo = ['rec', 'des', 'fin'].includes(it.tipo) ? it.tipo : 'des';
 
       try {
         if (modo === 'mesclar') {

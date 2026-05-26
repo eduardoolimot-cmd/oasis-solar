@@ -33,15 +33,16 @@ function parseValor(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Normaliza ITEM para 'rec' ou 'des' */
+/** Normaliza ITEM para 'rec' | 'des' | 'fin' */
 function mapTipo(item) {
   const norm = String(item || '').trim().toUpperCase().replace(/[ÇÃÕÉÍÓÚÁÉÍÓÚÂÊÔ]/g, (c) => ({
     Ç: 'C', Ã: 'A', Õ: 'O', É: 'E', Í: 'I', Ó: 'O', Ú: 'U',
     Á: 'A', Â: 'A', Ê: 'E', Ô: 'O',
   }[c] || c));
   if (norm === 'RECEITA' || norm.startsWith('RECE')) return 'rec';
-  if (norm === 'DESPESAS' || norm === 'DESPESA' || norm === 'FINANCIAMENTO') return 'des';
-  return null; // ignora linhas com tipo desconhecido
+  if (norm === 'DESPESAS' || norm === 'DESPESA') return 'des';
+  if (norm === 'FINANCIAMENTO' || norm.startsWith('FINAN')) return 'fin';
+  return null;
 }
 
 /**

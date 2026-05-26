@@ -1012,35 +1012,48 @@ async function salvarManut() {
 async function renderFinanceiro() {
   const fu = $('finFU').value;
   const fa = $('finFA').value;
+  const fm = $('finFM')?.value || '';
   const ft = $('finFT').value;
-  const fcat = $('finFCat')?.value || '';
+  const fcats = state.finCatsSelecionadas || []; // multi
+
   const qs = new URLSearchParams();
   if (fu) qs.set('usinaId', fu);
   if (fa) qs.set('ano', fa);
+  if (fm) qs.set('mes', fm);
   if (ft) qs.set('tipo', ft);
-  if (fcat) qs.set('cat', fcat);
+  if (fcats.length) qs.set('cats', fcats.join(','));
 
   state.financeiro = await api.get('/financeiro?' + qs);
-  // Sumário SEM filtro de categoria (pra mostrar todos os tipos no gráfico)
+
+  // Sumário sem filtro de categoria (pra todas aparecerem no gráfico/filtro)
   const qsSum = new URLSearchParams();
   if (fu) qsSum.set('usinaId', fu);
   if (fa) qsSum.set('ano', fa);
+  if (fm) qsSum.set('mes', fm);
   if (ft) qsSum.set('tipo', ft);
   const sum = await api.get('/financeiro/sumario?' + qsSum);
 
-  // Popula filtro de categorias com as que vêm do sumário (recebidas + despesas)
+  // Popula filtro multi de categorias (preserva seleção atual)
   popularFiltroCategorias(sum.porCategoria);
 
   const t = sum.totais;
+  // KPI: agora 5 cards (Receitas, Despesas, Financiamento, Líquido, Margem)
+  $('finKpi').style.gridTemplateColumns = 'repeat(5,1fr)';
   $('finKpi').innerHTML = `
     <div class="fin-card"><div class="fin-lbl">Receitas</div><div class="fin-val" style="color:var(--ok)">${fmtBRL(t.receitas)}</div><div class="fin-sub">${t.qtdReceitas} lançamentos</div></div>
     <div class="fin-card"><div class="fin-lbl">Despesas</div><div class="fin-val" style="color:var(--er)">${fmtBRL(t.despesas)}</div><div class="fin-sub">${t.qtdDespesas} lançamentos</div></div>
-    <div class="fin-card ${t.liquido >= 0 ? 'hl' : ''}"><div class="fin-lbl">Resultado Líquido</div><div class="fin-val" style="color:${t.liquido >= 0 ? 'var(--p)' : 'var(--er)'}">${fmtBRL(t.liquido)}</div><div class="fin-sub">${t.liquido >= 0 ? 'Superávit' : 'Déficit'}</div></div>
-    <div class="fin-card"><div class="fin-lbl">Margem</div><div class="fin-val">${t.margem}%</div><div class="fin-sub">Sobre receita</div></div>
+    <div class="fin-card"><div class="fin-lbl">Financiamento</div><div class="fin-val" style="color:#8B5CF6">${fmtBRL(t.financiamentos || 0)}</div><div class="fin-sub">${t.qtdFinanciamentos || 0} lançamentos</div></div>
+    <div class="fin-card ${t.liquidoOperacional >= 0 ? 'hl' : ''}" title="Receitas - Despesas (sem financiamento)"><div class="fin-lbl">Líquido Operacional</div><div class="fin-val" style="color:${t.liquidoOperacional >= 0 ? 'var(--p)' : 'var(--er)'}">${fmtBRL(t.liquidoOperacional)}</div><div class="fin-sub">${t.liquidoOperacional >= 0 ? 'Superávit' : 'Déficit'}</div></div>
+    <div class="fin-card" title="Receitas - Despesas - Financiamento"><div class="fin-lbl">Líquido Total</div><div class="fin-val" style="color:${t.liquidoTotal >= 0 ? 'var(--p)' : 'var(--er)'}">${fmtBRL(t.liquidoTotal)}</div><div class="fin-sub">Margem ${t.margem}%</div></div>
   `;
-  $('finChartSub').textContent = fa || 'Todos';
+  const MES_LBL = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  $('finChartSub').textContent = `${fa || 'Todos'}${fm ? ' · ' + MES_LBL[parseInt(fm)-1] : ''}`;
   renderFinChart(sum.mensal);
   renderFinCatChart(sum.porCategoria, state.finCatTipo);
+
+  const TIPO_LBL = { rec: 'Receita', des: 'Despesa', fin: 'Financiamento' };
+  const TIPO_PILL = { rec: 'p-ok', des: 'p-er', fin: 'p-bl' };
+  const TIPO_COR = { rec: 'var(--ok)', des: 'var(--er)', fin: '#8B5CF6' };
 
   const canEdit = ['ADMIN', 'TECNICO'].includes(state.user.role);
   $('finTbl').innerHTML = state.financeiro.length
@@ -1048,28 +1061,65 @@ async function renderFinanceiro() {
       <tr>
         <td>${fmtDate(f.data)}</td>
         <td><strong>${f.usinaNome}</strong></td>
-        <td><span class="pill ${f.tipo === 'rec' ? 'p-ok' : 'p-er'}">${f.tipo === 'rec' ? 'Receita' : 'Despesa'}</span></td>
+        <td><span class="pill ${TIPO_PILL[f.tipo] || 'p-gy'}">${TIPO_LBL[f.tipo] || f.tipo}</span></td>
         <td>${f.cat}</td>
         <td>${f.desc || '—'}</td>
-        <td style="font-weight:700;color:${f.tipo === 'rec' ? 'var(--ok)' : 'var(--er)'}">${fmtBRL(f.val)}</td>
+        <td style="font-weight:700;color:${TIPO_COR[f.tipo] || 'inherit'}">${fmtBRL(f.val)}</td>
         <td><span class="pill ${{ pg: 'p-ok', pend: 'p-wn', prev: 'p-gy' }[f.st] || 'p-gy'}">${{ pg: 'Pago', pend: 'Pendente', prev: 'Previsto' }[f.st] || f.st}</span></td>
-        <td>${canEdit ? `<button class="bico er" data-del-fin="${f.id}"><i class="fas fa-trash"></i></button>` : ''}</td>
+        <td style="white-space:nowrap">${canEdit ? `
+          <button class="bico" data-edit-fin="${f.id}" title="Editar"><i class="fas fa-edit"></i></button>
+          <button class="bico er" data-del-fin="${f.id}" title="Excluir"><i class="fas fa-trash"></i></button>` : ''}</td>
       </tr>`).join('')
     : '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:22px">Nenhum lançamento</td></tr>';
   $$('[data-del-fin]').forEach((b) => b.addEventListener('click', () => deletarFin(b.dataset.delFin)));
+  $$('[data-edit-fin]').forEach((b) => b.addEventListener('click', () => editarFin(b.dataset.editFin)));
 }
 
 function popularFiltroCategorias(porCategoria) {
-  const sel = $('finFCat');
-  if (!sel) return;
-  const cur = sel.value;
+  const list = $('finFCatList');
+  if (!list) return;
+
   const todas = new Set();
   (porCategoria?.despesas || []).forEach((c) => todas.add(c.categoria));
   (porCategoria?.receitas || []).forEach((c) => todas.add(c.categoria));
+  (porCategoria?.financiamentos || []).forEach((c) => todas.add(c.categoria));
   const ord = [...todas].sort();
-  sel.innerHTML = '<option value="">Todas categorias</option>' +
-    ord.map((c) => `<option value="${c}">${c}</option>`).join('');
-  if (cur && ord.includes(cur)) sel.value = cur;
+  state.finCatsDisponiveis = ord;
+
+  // Mantém só seleções que ainda existem
+  state.finCatsSelecionadas = (state.finCatsSelecionadas || []).filter((c) => ord.includes(c));
+
+  list.innerHTML = ord.length
+    ? ord.map((c) => {
+        const checked = state.finCatsSelecionadas.includes(c);
+        return `<label style="display:flex;align-items:center;gap:7px;padding:5px 6px;cursor:pointer;border-radius:4px;font-size:13px" data-cat-row>
+          <input type="checkbox" data-fcat-check value="${c}" ${checked ? 'checked' : ''} style="width:15px;height:15px;cursor:pointer">
+          <span>${c}</span>
+        </label>`;
+      }).join('')
+    : '<div style="color:var(--t3);font-size:12px;text-align:center;padding:10px">Nenhuma categoria com dados</div>';
+
+  // listeners das checkboxes
+  list.querySelectorAll('[data-fcat-check]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      const sel = list.querySelectorAll('[data-fcat-check]:checked');
+      state.finCatsSelecionadas = [...sel].map((x) => x.value);
+      atualizarLabelFiltroCategorias();
+      renderFinanceiro();
+    });
+  });
+
+  atualizarLabelFiltroCategorias();
+}
+
+function atualizarLabelFiltroCategorias() {
+  const lbl = $('finFCatLabel');
+  if (!lbl) return;
+  const n = state.finCatsSelecionadas?.length || 0;
+  const total = state.finCatsDisponiveis?.length || 0;
+  if (n === 0) lbl.textContent = `Todas categorias (${total})`;
+  else if (n === total) lbl.textContent = `Todas (${total})`;
+  else lbl.textContent = `${n} de ${total} categorias`;
 }
 
 function renderFinChart(mensal) {
@@ -1080,8 +1130,9 @@ function renderFinChart(mensal) {
     data: {
       labels: MO,
       datasets: [
-        { label: 'Receitas', data: mensal.receitas, backgroundColor: 'rgba(16,185,129,.72)', borderRadius: 5 },
-        { label: 'Despesas', data: mensal.despesas, backgroundColor: 'rgba(239,68,68,.72)', borderRadius: 5 },
+        { label: 'Receitas',      data: mensal.receitas,              backgroundColor: 'rgba(16,185,129,.78)', borderRadius: 4 },
+        { label: 'Despesas',      data: mensal.despesas,              backgroundColor: 'rgba(239,68,68,.78)',  borderRadius: 4 },
+        { label: 'Financiamento', data: mensal.financiamentos || [],  backgroundColor: 'rgba(139,92,246,.78)', borderRadius: 4 },
       ],
     },
     options: {
@@ -1102,11 +1153,13 @@ function renderFinCatChart(porCategoria, tipo = 'des') {
   if (!ctx) return;
   if (state.charts.finCat) state.charts.finCat.destroy();
 
-  const dados = (porCategoria?.[tipo === 'rec' ? 'receitas' : 'despesas']) || [];
+  const mapTipoKey = { rec: 'receitas', des: 'despesas', fin: 'financiamentos' };
+  const mapTipoLbl = { rec: 'Receitas', des: 'Despesas', fin: 'Financiamento' };
+  const dados = (porCategoria?.[mapTipoKey[tipo]]) || [];
   const subEl = $('finCatSub');
   if (subEl) {
     const totalSum = dados.reduce((s, x) => s + x.total, 0);
-    subEl.textContent = `${tipo === 'rec' ? 'Receitas' : 'Despesas'} — Total ${fmtBRL(totalSum)} em ${dados.length} categoria${dados.length === 1 ? '' : 's'}`;
+    subEl.textContent = `${mapTipoLbl[tipo]} — Total ${fmtBRL(totalSum)} em ${dados.length} categoria${dados.length === 1 ? '' : 's'}`;
   }
 
   if (!dados.length) {
@@ -1216,6 +1269,23 @@ async function abrirNovoFin() {
   $('finData').value = new Date().toISOString().slice(0, 10);
   $('finSt').value = 'pg';
   $('finEditId').value = '';
+  // Selecionar a 1ª usina por padrão (fica visível)
+  if ($('finUsina')?.options?.length > 1) $('finUsina').selectedIndex = 1;
+  openM('mFin');
+}
+
+async function editarFin(id) {
+  const f = state.financeiro.find((x) => x.id === id);
+  if (!f) return toast('Lançamento não encontrado', 'er');
+  await carregarCategoriasFinanceiro();
+  $('finUsina').value = f.usinaId;
+  $('finTipo').value = f.tipo;
+  $('finData').value = f.data.slice(0, 10);
+  renderFinCatSelect(f.cat);
+  $('finDesc').value = f.desc || '';
+  $('finVal').value = f.val;
+  $('finSt').value = f.st;
+  $('finEditId').value = f.id;
   openM('mFin');
 }
 
@@ -1248,9 +1318,15 @@ async function salvarFin() {
     st: $('finSt').value,
   };
   if (!payload.usinaId || !payload.val || !payload.data) return toast('Preencha usina, data e valor', 'er');
+  const editId = $('finEditId').value;
   try {
-    await api.post('/financeiro', payload);
-    toast('Lançamento salvo', 'ok');
+    if (editId) {
+      await api.put('/financeiro/' + editId, payload);
+      toast('Lançamento atualizado', 'ok');
+    } else {
+      await api.post('/financeiro', payload);
+      toast('Lançamento criado', 'ok');
+    }
     closeM('mFin');
     await renderFinanceiro();
   } catch (e) {
@@ -1283,6 +1359,12 @@ function abrirImportFin() {
   $('impFinAno').value = new Date().getFullYear();
   $('impFinModo').value = 'mesclar';
   $('impFinFile').value = '';
+  // Popula select de usina override
+  if ($('impFinUsina')) {
+    $('impFinUsina').innerHTML =
+      '<option value="">Usar nome da usina que está no CSV</option>' +
+      state.usinas.map((u) => `<option value="${u.id}">→ Atribuir tudo a: ${u.nome}</option>`).join('');
+  }
   openM('mImpFin');
 }
 
@@ -1407,9 +1489,12 @@ async function confirmarImportFin() {
   if (!_impFinPreview) return;
   const { ano, itens } = _impFinPreview;
   const modo = $('impFinModo').value;
+  const usinaOverrideId = $('impFinUsina')?.value || null;
 
-  // Remove usinas não encontradas
-  const itensValidos = itens.filter((it) => !_impFinPreview.usinasNaoEncontradas.includes(it.usina));
+  // Se override foi escolhido, ignora a regra de "usina não encontrada"
+  const itensValidos = usinaOverrideId
+    ? itens
+    : itens.filter((it) => !_impFinPreview.usinasNaoEncontradas.includes(it.usina));
   if (!itensValidos.length) {
     toast('Nenhum item válido para importar', 'er');
     return;
@@ -1423,7 +1508,9 @@ async function confirmarImportFin() {
   $('btnImpFinConfirm').disabled = true;
   $('btnImpFinConfirm').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...';
   try {
-    const r = await api.post('/financeiro/importar', { ano, itens: itensValidos, modo });
+    const payload = { ano, itens: itensValidos, modo };
+    if (usinaOverrideId) payload.usinaOverrideId = usinaOverrideId;
+    const r = await api.post('/financeiro/importar', payload);
     toast(`Importação OK: ${r.added} novos, ${r.updated} atualizados${r.erros.length ? `, ${r.erros.length} erros` : ''}`, 'ok');
     closeM('mImpFin');
     await renderFinanceiro();
@@ -1976,7 +2063,33 @@ function setupEventos() {
   $('btnFinNovaCat').addEventListener('click', adicionarNovaCategoriaFin);
   $('btnImportFin').addEventListener('click', abrirImportFin);
   setupImportFin();
-  ['finFU', 'finFA', 'finFT', 'finFCat'].forEach((id) => $(id).addEventListener('change', renderFinanceiro));
+  ['finFU', 'finFA', 'finFM', 'finFT'].forEach((id) => $(id).addEventListener('change', renderFinanceiro));
+
+  // Dropdown multi de categorias
+  $('btnFinFCat').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const panel = $('finFCatPanel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  });
+  document.addEventListener('click', (e) => {
+    const panel = $('finFCatPanel');
+    if (!panel) return;
+    if (!panel.contains(e.target) && e.target !== $('btnFinFCat') && !$('btnFinFCat').contains(e.target)) {
+      panel.style.display = 'none';
+    }
+  });
+  $('finFCatAll').addEventListener('click', () => {
+    state.finCatsSelecionadas = [...(state.finCatsDisponiveis || [])];
+    document.querySelectorAll('[data-fcat-check]').forEach((cb) => (cb.checked = true));
+    atualizarLabelFiltroCategorias();
+    renderFinanceiro();
+  });
+  $('finFCatNone').addEventListener('click', () => {
+    state.finCatsSelecionadas = [];
+    document.querySelectorAll('[data-fcat-check]').forEach((cb) => (cb.checked = false));
+    atualizarLabelFiltroCategorias();
+    renderFinanceiro();
+  });
   // Toggle Despesas ↔ Receitas no gráfico de categorias
   $$('[data-fincat]').forEach((btn) =>
     btn.addEventListener('click', () => {
