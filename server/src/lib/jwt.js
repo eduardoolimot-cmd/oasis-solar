@@ -25,14 +25,26 @@ export function verifyToken(token) {
 /**
  * Configurações padrão do cookie httpOnly.
  * - httpOnly: bloqueia leitura via JS (proteção XSS)
- * - sameSite: lax permite navegação top-level mas bloqueia CSRF agressivo
- * - secure: true em prod (HTTPS), false em dev (localhost)
+ * - sameSite: 'lax' funciona com mesma origem em HTTP e HTTPS
+ * - secure: só true se o CORS_ORIGIN começa com https:// (auto-detecção)
+ *   Em HTTP puro (acesso via IP sem certificado), o cookie precisa ser não-secure
+ *   senão o navegador descarta silenciosamente.
+ *
+ * Você pode forçar com COOKIE_SECURE=true ou COOKIE_SECURE=false no .env.
  */
 export function authCookieOptions() {
+  const isHttps = env.CORS_ORIGIN.startsWith('https://');
+  // permite override explícito
+  const secureFromEnv = process.env.COOKIE_SECURE;
+  const secure =
+    secureFromEnv === 'true' ? true :
+    secureFromEnv === 'false' ? false :
+    isHttps;
+
   return {
     httpOnly: true,
-    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
-    secure: env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    secure,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
     path: '/',
   };

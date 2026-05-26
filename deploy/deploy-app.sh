@@ -42,21 +42,26 @@ else
   cd "$APP_DIR"
 fi
 
-# 2) Criar .env de produção
-echo ""
-echo "🔐 Criando .env de produção..."
-cat > "$APP_DIR/server/.env" <<EOF
+# 2) Criar .env de produção (se ainda não existir — preserva customizações)
+if [ -f "$APP_DIR/server/.env" ]; then
+  echo "🔐 .env já existe — preservando customizações"
+else
+  echo "🔐 Criando .env de produção..."
+  cat > "$APP_DIR/server/.env" <<EOF
 PORT=3001
 NODE_ENV=production
 DATABASE_URL=$DATABASE_URL
 JWT_SECRET=$JWT_SECRET
 JWT_EXPIRES_IN=7d
-CORS_ORIGIN=http://localhost:3001
+# CORS_ORIGIN: defina sua URL real (ex: http://SEU_IP ou https://seudominio.com.br)
+# O cookie de autenticação detecta automaticamente HTTP vs HTTPS a partir daqui.
+CORS_ORIGIN=http://localhost
 UPLOAD_DIR=uploads
 UPLOAD_MAX_BYTES=10485760
 EOF
-chmod 600 "$APP_DIR/server/.env"
-echo "   ✓ /opt/oasis-solar/server/.env"
+  chmod 600 "$APP_DIR/server/.env"
+  echo "   ✓ /opt/oasis-solar/server/.env"
+fi
 
 # 3) Instalar dependências de produção
 echo ""
