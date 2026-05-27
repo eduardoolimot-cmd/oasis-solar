@@ -146,7 +146,8 @@
   <div id="sec-lancamento" class="section">
     <div class="sec-bar"><div><div class="sec-title">Lançamento de Dados</div><div class="sec-desc">Registrar geração mensal</div></div></div>
     <div class="tcard" style="padding:20px" data-role="ADMIN,TECNICO">
-      <div style="font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:7px"><i class="fas fa-upload" style="color:var(--p)"></i> Novo Lançamento</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:7px" id="lFormTitle"><i class="fas fa-upload" style="color:var(--p)"></i> Novo Lançamento</div>
+      <input type="hidden" id="lEditId">
       <div class="fg">
         <div class="fgrp"><label class="flabel">Usina <span class="req">*</span></label><select class="fselect" id="lUsina"></select></div>
         <div class="fgrp"><label class="flabel">SKID</label><select class="fselect" id="lSkid"><option value="">Geral (sem SKID)</option></select></div>
@@ -159,7 +160,7 @@
       </div>
       <div style="display:flex;gap:9px;margin-top:16px;padding-top:13px;border-top:1px solid var(--bd)">
         <button class="btn btn-p" id="btnSaveLanc"><i class="fas fa-save"></i> Salvar</button>
-        <button class="btn btn-o" id="btnClearLanc"><i class="fas fa-eraser"></i> Limpar</button>
+        <button class="btn btn-o" id="btnClearLanc"><i class="fas fa-eraser"></i> Limpar / Cancelar</button>
       </div>
     </div>
     <div class="tcard">

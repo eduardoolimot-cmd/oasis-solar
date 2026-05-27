@@ -692,11 +692,14 @@ async function renderLancamento() {
         <td>${l.irrad ? l.irrad.toFixed(1) : '—'} kWh/m²</td>
         <td><span class="pill ${l.pr >= 81 ? 'p-ok' : 'p-wn'}">${l.pr?.toFixed(1) || '0'}%</span></td>
         <td><span class="pill ${!l.disp || l.disp >= 96 ? 'p-ok' : 'p-wn'}">${l.disp ? l.disp.toFixed(1) + '%' : '—'}</span></td>
-        <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.obs || '—'}</td>
-        <td>${canEdit ? `<button class="bico er" data-del-lanc="${l.id}"><i class="fas fa-trash"></i></button>` : ''}</td>
+        <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${l.obs || ''}">${l.obs || '—'}</td>
+        <td style="white-space:nowrap">${canEdit ? `
+          <button class="bico" data-edit-lanc="${l.id}" title="Editar"><i class="fas fa-edit"></i></button>
+          <button class="bico er" data-del-lanc="${l.id}" title="Excluir"><i class="fas fa-trash"></i></button>` : ''}</td>
       </tr>`).join('')
     : '<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:22px">Nenhum registro</td></tr>';
   $$('[data-del-lanc]').forEach((b) => b.addEventListener('click', () => deletarLanc(b.dataset.delLanc)));
+  $$('[data-edit-lanc]').forEach((b) => b.addEventListener('click', () => editarLanc(b.dataset.editLanc)));
 }
 
 async function salvarLanc() {
@@ -713,9 +716,15 @@ async function salvarLanc() {
     obs: $('lObs').value || null,
   };
   if (!payload.geracao && payload.geracao !== 0) return toast('Informe a geração', 'er');
+  const editId = $('lEditId')?.value;
   try {
-    await api.post('/lancamentos', payload);
-    toast('Lançamento salvo!', 'ok');
+    if (editId) {
+      await api.put('/lancamentos/' + editId, payload);
+      toast('Lançamento atualizado', 'ok');
+    } else {
+      await api.post('/lancamentos', payload);
+      toast('Lançamento salvo!', 'ok');
+    }
     limparLancForm();
     await renderLancamento();
     if ($('sec-dashboard').classList.contains('active')) await renderDashboard();
@@ -723,9 +732,36 @@ async function salvarLanc() {
     toast(e.message, 'er');
   }
 }
+
 function limparLancForm() {
   ['lGen', 'lIrr', 'lPR', 'lDisp', 'lObs'].forEach((id) => ($(id).value = ''));
+  if ($('lEditId')) $('lEditId').value = '';
+  if ($('lFormTitle')) {
+    $('lFormTitle').innerHTML = '<i class="fas fa-upload" style="color:var(--p)"></i> Novo Lançamento';
+  }
+  // Restaura mês atual no campo Período
+  if ($('lPer')) $('lPer').value = new Date().toISOString().slice(0, 7);
 }
+
+function editarLanc(id) {
+  const l = state.lancamentos.find((x) => x.id === id);
+  if (!l) return toast('Lançamento não encontrado', 'er');
+  // Preenche o form (e popula skids se a usina tem)
+  $('lUsina').value = l.usinaId;
+  atualizarLSkidSelect();
+  if (l.skidId) $('lSkid').value = l.skidId;
+  $('lPer').value = l.periodo;
+  $('lGen').value = l.geracao;
+  $('lIrr').value = l.irrad || '';
+  $('lPR').value = l.pr || '';
+  $('lDisp').value = l.disp || '';
+  $('lObs').value = l.obs || '';
+  $('lEditId').value = l.id;
+  $('lFormTitle').innerHTML = `<i class="fas fa-edit" style="color:var(--p)"></i> Editar Lançamento — ${l.usinaNome} (${fmtPeriodo(l.periodo)})`;
+  // Rola até o form pro usuário ver
+  $('lFormTitle').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 async function deletarLanc(id) {
   if (!confirm('Excluir lançamento?')) return;
   try {
