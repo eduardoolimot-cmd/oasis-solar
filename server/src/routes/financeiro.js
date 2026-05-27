@@ -14,6 +14,9 @@ import { emit } from '../realtime.js';
 import { aplicarFiltroUsinas } from '../lib/access.js';
 import { uploadCSV } from '../lib/upload.js';
 import { parseFinanceiroCSV } from '../lib/csv-fin.js';
+import { notificarAdmins, fmtUsuario, fmtDataHora } from '../lib/notificar.js';
+
+const TIPO_LBL = { rec: 'Receita', des: 'Despesa', fin: 'Financiamento' };
 
 const router = Router();
 router.use(requireAuth);
@@ -218,6 +221,12 @@ router.post(
 
     const shaped = shape(created);
     emit('financeiro:created', shaped);
+    notificarAdmins({
+      titulo: '💰 Novo lançamento financeiro',
+      body: `${fmtUsuario(req.user)}: ${TIPO_LBL[shaped.tipo]} de R$ ${shaped.val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${shaped.cat}) em ${shaped.usinaNome} — ${fmtDataHora()}`,
+      tipo: shaped.tipo === 'rec' ? 'ok' : 'info',
+      exceto: req.user.id,
+    });
     res.status(201).json(shaped);
   }),
 );
@@ -249,6 +258,12 @@ router.put(
 
     const shaped = shape(updated);
     emit('financeiro:updated', shaped);
+    notificarAdmins({
+      titulo: '✏️ Lançamento financeiro editado',
+      body: `${fmtUsuario(req.user)}: ${TIPO_LBL[shaped.tipo]} (${shaped.cat}) ${shaped.usinaNome} → R$ ${shaped.val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — ${fmtDataHora()}`,
+      tipo: 'info',
+      exceto: req.user.id,
+    });
     res.json(shaped);
   }),
 );
@@ -274,6 +289,12 @@ router.delete(
     });
 
     emit('financeiro:deleted', { id: req.params.id });
+    notificarAdmins({
+      titulo: '🗑️ Lançamento financeiro excluído',
+      body: `${fmtUsuario(req.user)} removeu ${TIPO_LBL[exists.tipo]} R$ ${exists.val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${exists.cat}) — ${fmtDataHora()}`,
+      tipo: 'wn',
+      exceto: req.user.id,
+    });
     res.json({ ok: true });
   }),
 );

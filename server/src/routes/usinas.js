@@ -10,6 +10,7 @@ import {
 } from '../middleware/auth.js';
 import { emit } from '../realtime.js';
 import { aplicarFiltroUsinas, exigirAcessoUsina } from '../lib/access.js';
+import { notificarAdmins, fmtUsuario, fmtDataHora } from '../lib/notificar.js';
 
 const router = Router();
 
@@ -172,6 +173,12 @@ router.post(
     });
     const shaped = shapeUsina(full);
     emit('usina:created', shaped);
+    notificarAdmins({
+      titulo: '🌞 Nova usina cadastrada',
+      body: `${fmtUsuario(req.user)} criou "${shaped.nome}" (${shaped.kwp} kWp) em ${fmtDataHora()}`,
+      tipo: 'ok',
+      exceto: req.user.id,
+    });
     res.status(201).json(shaped);
   }),
 );
@@ -261,6 +268,12 @@ router.put(
     });
     const shaped = shapeUsina(updated);
     emit('usina:updated', shaped);
+    notificarAdmins({
+      titulo: '✏️ Usina atualizada',
+      body: `${fmtUsuario(req.user)} editou "${shaped.nome}" em ${fmtDataHora()}`,
+      tipo: 'info',
+      exceto: req.user.id,
+    });
     res.json(shaped);
   }),
 );
@@ -287,6 +300,12 @@ router.delete(
     });
 
     emit('usina:deleted', { id });
+    notificarAdmins({
+      titulo: '🗑️ Usina excluída',
+      body: `${fmtUsuario(req.user)} removeu "${exists.nome}" em ${fmtDataHora()}`,
+      tipo: 'wn',
+      exceto: req.user.id,
+    });
     res.json({ ok: true });
   }),
 );

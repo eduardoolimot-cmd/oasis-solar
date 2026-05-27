@@ -19,15 +19,15 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  senhaHash    String
-  nome         String
-  role         String   @default("VISUALIZADOR")
-  ativo        Boolean  @default(true)
-  ultimoLogin  DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String    @id @default(cuid())
+  email       String    @unique
+  senhaHash   String
+  nome        String
+  role        String    @default("VISUALIZADOR")
+  ativo       Boolean   @default(true)
+  ultimoLogin DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   lancamentos  Lancamento[]
   manutencoes  Manutencao[]
@@ -51,25 +51,25 @@ model UsinaAccess {
 }
 
 model Usina {
-  id          String   @id @default(cuid())
-  nome        String   @unique
-  kwp         Float
-  inicio      DateTime?
-  local       String?
-  obs         String?
+  id     String    @id @default(cuid())
+  nome   String    @unique
+  kwp    Float
+  inicio DateTime?
+  local  String?
+  obs    String?
 
   moduloModelo String?
-  moduloQtd    Int      @default(0)
-  moduloW      Int      @default(400)
+  moduloQtd    Int     @default(0)
+  moduloW      Int     @default(400)
   moduloFab    String?
 
   inversorModelo String?
-  inversorQtd    Int      @default(0)
-  inversorKw     Int      @default(110)
+  inversorQtd    Int     @default(0)
+  inversorKw     Int     @default(110)
   inversorFab    String?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   skids       Skid[]
   previsoes   Previsao[]
@@ -111,15 +111,15 @@ model Previsao {
 }
 
 model Lancamento {
-  id       String  @id @default(cuid())
-  usinaId  String
-  skidId   String?
-  periodo  String
-  geracao  Float
-  irrad    Float   @default(0)
-  pr       Float   @default(0)
-  disp     Float   @default(0)
-  obs      String?
+  id      String  @id @default(cuid())
+  usinaId String
+  skidId  String?
+  periodo String
+  geracao Float
+  irrad   Float   @default(0)
+  pr      Float   @default(0)
+  disp    Float   @default(0)
+  obs     String?
 
   criadoPorId String?
   createdAt   DateTime @default(now())
@@ -135,26 +135,29 @@ model Lancamento {
 }
 
 model Manutencao {
-  id       String   @id @default(cuid())
-  usinaId  String
-  tipo     String
-  status   String   @default("plan")
-  titulo   String
-  data     DateTime?
-  resp     String?
-  comp     String?
-  detalhe  String?
+  id                   String    @id @default(cuid())
+  usinaId              String
+  tipo                 String
+  status               String    @default("plan")
+  titulo               String
+  data                 DateTime?
+  vencimento           DateTime? // prazo limite — quando vence, dispara alerta
+  vencimentoNotificado Boolean   @default(false) // evita notificar várias vezes
+  resp                 String?
+  comp                 String?
+  detalhe              String?
 
   criadoPorId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  usina     Usina      @relation(fields: [usinaId], references: [id], onDelete: Cascade)
-  criadoPor User?      @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
+  usina     Usina     @relation(fields: [usinaId], references: [id], onDelete: Cascade)
+  criadoPor User?     @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
   arquivos  Arquivo[]
 
   @@index([usinaId, status])
   @@index([data])
+  @@index([vencimento, status])
 }
 
 model Arquivo {
@@ -208,13 +211,13 @@ model Notificacao {
 }
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  userId     String?
-  acao       String
-  recurso    String
-  recursoId  String?
-  payload    String?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String?
+  acao      String
+  recurso   String
+  recursoId String?
+  payload   String?
+  createdAt DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 

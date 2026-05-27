@@ -891,8 +891,23 @@ async function renderKanban() {
           </div>
         </div>
         <div class="kb-body">
-          ${cards.length ? cards.map((m) => `
-            <div class="kb-card" draggable="true" data-id="${m.id}">
+          ${cards.length ? cards.map((m) => {
+            // Calcula situação do vencimento
+            let badge = '';
+            if (m.vencimento) {
+              const venc = new Date(m.vencimento);
+              const hoje = new Date(); hoje.setHours(0,0,0,0);
+              const diff = Math.floor((venc - hoje) / (1000 * 60 * 60 * 24));
+              if (m.vencida || diff < 0) {
+                badge = `<span class="venc-badge" title="Venceu em ${fmtDate(m.vencimento)}"><i class="fas fa-exclamation-circle"></i> Vencida</span>`;
+              } else if (diff <= 7) {
+                badge = `<span class="venc-prox" title="Vence em ${fmtDate(m.vencimento)}"><i class="fas fa-clock"></i> ${diff === 0 ? 'Vence hoje' : `Vence em ${diff}d`}</span>`;
+              } else {
+                badge = `<span style="font-size:10px;color:var(--t3)" title="Prazo de conclusão"><i class="fas fa-calendar-check"></i> Vence ${fmtDate(m.vencimento)}</span>`;
+              }
+            }
+            return `
+            <div class="kb-card ${m.vencida ? 'vencida' : ''}" draggable="true" data-id="${m.id}">
               <div style="display:flex;justify-content:space-between;gap:6px">
                 <div class="kb-card-t">${m.titulo}</div>
                 <span class="${tc[m.tipo]}">${tl[m.tipo]}</span>
@@ -902,7 +917,9 @@ async function renderKanban() {
                 ${m.data ? `<span><i class="fas fa-calendar"></i> ${fmtDate(m.data)}</span>` : ''}
                 ${m.resp ? `<span><i class="fas fa-user"></i> ${m.resp}</span>` : ''}
               </div>
-            </div>`).join('') : `<div style="text-align:center;padding:26px 10px;color:var(--t3);font-size:12px"><i class="fas fa-inbox" style="font-size:22px;opacity:.3;display:block;margin-bottom:7px"></i>Nenhuma O.S.</div>`}
+              ${badge ? `<div style="margin-top:6px">${badge}</div>` : ''}
+            </div>`;
+          }).join('') : `<div style="text-align:center;padding:26px 10px;color:var(--t3);font-size:12px"><i class="fas fa-inbox" style="font-size:22px;opacity:.3;display:block;margin-bottom:7px"></i>Nenhuma O.S.</div>`}
           <div class="kb-drop-zone"></div>
         </div>
       </div>`;
@@ -959,6 +976,7 @@ function abrirNovaManut() {
   $('muTipo').value = 'prev';
   $('muStatus').value = 'plan';
   $('muData').value = '';
+  if ($('muVenc')) $('muVenc').value = '';
   $('muEditId').value = '';
   $('mManutTitle').innerHTML = '<i class="fas fa-tools" style="color:var(--p);margin-right:7px"></i>Nova O.S.';
   openM('mManut');
@@ -970,6 +988,7 @@ function abrirEditManut(id) {
   $('muTipo').value = m.tipo;
   $('muStatus').value = m.status;
   $('muData').value = m.data ? m.data.slice(0, 10) : '';
+  if ($('muVenc')) $('muVenc').value = m.vencimento ? m.vencimento.slice(0, 10) : '';
   $('muResp').value = m.resp || '';
   $('muComp').value = m.comp || '';
   $('muTit').value = m.titulo;
@@ -984,6 +1003,7 @@ async function salvarManut() {
     tipo: $('muTipo').value,
     status: $('muStatus').value,
     data: $('muData').value || null,
+    vencimento: $('muVenc')?.value || null,
     resp: $('muResp').value || null,
     comp: $('muComp').value || null,
     titulo: $('muTit').value.trim(),

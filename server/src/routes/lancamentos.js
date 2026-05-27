@@ -14,6 +14,7 @@ import { uploadCSV } from '../lib/upload.js';
 import { parseLancamentosCSV } from '../lib/csv.js';
 import { emit } from '../realtime.js';
 import { aplicarFiltroUsinas, exigirAcessoUsina } from '../lib/access.js';
+import { notificarAdmins, fmtUsuario, fmtDataHora } from '../lib/notificar.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -127,6 +128,12 @@ router.post(
 
     const shaped = shape(created);
     emit('lancamento:created', shaped);
+    notificarAdmins({
+      titulo: '⚡ Novo lançamento de geração',
+      body: `${fmtUsuario(req.user)} registrou ${shaped.geracao.toLocaleString('pt-BR')} kWh em ${shaped.usinaNome} (${shaped.periodo}) — ${fmtDataHora()}`,
+      tipo: 'ok',
+      exceto: req.user.id,
+    });
     res.status(201).json(shaped);
   }),
 );
@@ -159,6 +166,12 @@ router.put(
 
     const shaped = shape(updated);
     emit('lancamento:updated', shaped);
+    notificarAdmins({
+      titulo: '✏️ Lançamento editado',
+      body: `${fmtUsuario(req.user)} editou ${shaped.usinaNome} (${shaped.periodo}) → ${shaped.geracao.toLocaleString('pt-BR')} kWh — ${fmtDataHora()}`,
+      tipo: 'info',
+      exceto: req.user.id,
+    });
     res.json(shaped);
   }),
 );
@@ -185,6 +198,12 @@ router.delete(
     });
 
     emit('lancamento:deleted', { id: req.params.id });
+    notificarAdmins({
+      titulo: '🗑️ Lançamento excluído',
+      body: `${fmtUsuario(req.user)} removeu ${exists.periodo} de ${exists.usinaId ? '(usina ' + exists.usinaId.slice(0, 8) + ')' : ''} — ${fmtDataHora()}`,
+      tipo: 'wn',
+      exceto: req.user.id,
+    });
     res.json({ ok: true });
   }),
 );

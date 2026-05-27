@@ -19,6 +19,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import relatorioRoutes from './routes/relatorio.js';
 import adminRoutes from './routes/admin.js';
 import { setupRealtime } from './realtime.js';
+import { iniciarJobVencimento } from './jobs/manutencao-vencimento.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -77,6 +78,9 @@ app.use(errorHandler);
 
 // ---------- Socket.IO ----------
 setupRealtime(server);
+
+// ---------- Jobs em background ----------
+iniciarJobVencimento();
 
 // ---------- Boot ----------
 server.listen(env.PORT, () => {

@@ -16,6 +16,7 @@ import {
 import { uploadManutencao, UPLOAD_ROOT } from '../lib/upload.js';
 import { emit } from '../realtime.js';
 import { aplicarFiltroUsinas, exigirAcessoUsina } from '../lib/access.js';
+import { notificarAdmins, fmtUsuario, fmtDataHora } from '../lib/notificar.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -27,6 +28,8 @@ const INCLUDE = {
 };
 
 function shape(m) {
+  const agora = new Date();
+  const vencida = m.vencimento && m.status !== 'ok' && new Date(m.vencimento) < agora;
   return {
     id: m.id,
     usinaId: m.usinaId,
@@ -35,10 +38,13 @@ function shape(m) {
     status: m.status,
     titulo: m.titulo,
     data: m.data,
+    vencimento: m.vencimento,
+    vencida: !!vencida,
     resp: m.resp,
     comp: m.comp,
     detalhe: m.detalhe,
     criadoPor: m.criadoPor?.nome ?? null,
+    criadoPorId: m.criadoPorId ?? null,
     arquivos: (m.arquivos || []).map((a) => ({
       id: a.id,
       nome: a.nome,
@@ -117,6 +123,13 @@ router.post(
 
     const shaped = shape(created);
     emit('manutencao:created', shaped);
+    const venc = shaped.vencimento ? ` (vence em ${new Date(shaped.vencimento).toLocaleDateString('pt-BR')})` : '';
+    notificarAdmins({
+      titulo: '🔧 Nova ordem de manutenção',
+      body: `${fmtUsuario(req.user)} criou "${shaped.titulo}" em ${shaped.usinaNome}${venc} — ${fmtDataHora()}`,
+      tipo: 'info',
+      exceto: req.user.id,
+    });
     res.status(201).json(shaped);
   }),
 );
@@ -131,9 +144,14 @@ router.put(
     });
     if (!exists) throw httpErrors.notFound('Manutenção não encontrada');
 
+    // Se o vencimento foi alterado, reseta a flag pra notificar de novo se vencer
+    const vencimentoMudou = (exists.vencimento?.getTime() || 0) !== (data.vencimento?.getTime() || 0);
+    const updateData = { ...data };
+    if (vencimentoMudou) updateData.vencimentoNotificado = false;
+
     const updated = await prisma.manutencao.update({
       where: { id: req.params.id },
-      data,
+      data: updateData,
       include: INCLUDE,
     });
 
@@ -148,6 +166,12 @@ router.put(
 
     const shaped = shape(updated);
     emit('manutencao:updated', shaped);
+    notificarAdmins({
+      titulo: '✏️ Manutenção editada',
+      body: `${fmtUsuario(req.user)} editou "${shaped.titulo}" em ${shaped.usinaNome} — ${fmtDataHora()}`,
+      tipo: 'info',
+      exceto: req.user.id,
+    });
     res.json(shaped);
   }),
 );
@@ -181,6 +205,13 @@ router.patch(
 
     const shaped = shape(updated);
     emit('manutencao:updated', shaped);
+    const STATUS_LBL = { plan: 'Planejada', exec: 'Em Execução', ok: 'Concluída' };
+    notificarAdmins({
+      titulo: '🔄 Manutenção movida no Kanban',
+      body: `${fmtUsuario(req.user)} moveu "${shaped.titulo}" → ${STATUS_LBL[status]} (${shaped.usinaNome}) — ${fmtDataHora()}`,
+      tipo: status === 'ok' ? 'ok' : 'info',
+      exceto: req.user.id,
+    });
     res.json(shaped);
   }),
 );
@@ -215,6 +246,12 @@ router.delete(
       },
     });
     emit('manutencao:deleted', { id: m.id });
+    notificarAdmins({
+      titulo: '🗑️ Manutenção excluída',
+      body: `${fmtUsuario(req.user)} removeu "${m.titulo}" — ${fmtDataHora()}`,
+      tipo: 'wn',
+      exceto: req.user.id,
+    });
     res.json({ ok: true });
   }),
 );

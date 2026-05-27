@@ -84,6 +84,11 @@ export const manutencaoSchema = z.object({
     .optional()
     .nullable()
     .transform((v) => (v ? new Date(v) : null)),
+  vencimento: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => (v ? new Date(v) : null)),
   resp: optionalString,
   comp: optionalString,
   detalhe: optionalString,
