@@ -10,7 +10,10 @@
 // O usuário sempre revisa/edita antes de salvar.
 // =================================================
 
-import pdfParse from 'pdf-parse';
+// pdf-parse 2.x exporta named { pdf }, v1.x exporta default.
+// Resolvemos os 2 formatos para o import funcionar em qualquer versão.
+import * as PdfParseLib from 'pdf-parse';
+const pdfParse = PdfParseLib.pdf || PdfParseLib.default || PdfParseLib;
 
 const MESES_PT = {
   JANEIRO: 1, JAN: 1,
@@ -127,8 +130,16 @@ function extrairBeneficiarios(text) {
 
 /** Parser principal */
 export async function parseFitPDF(buffer) {
-  const data = await pdfParse(buffer);
-  const text = (data.text || '').replace(/\s+/g, ' ').trim();
+  let data;
+  try {
+    data = await pdfParse(buffer);
+  } catch (e) {
+    throw new Error(`pdf-parse falhou: ${e.message}`);
+  }
+  // v2.x retorna { text, numpages } igual a v1 — mas garantimos fallback
+  const text = String(data?.text ?? data?.pages?.map?.((p) => p.text).join('\n') ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   const { mes, ano } = extrairPeriodo(text);
   const geracao = extrairGeracao(text);
