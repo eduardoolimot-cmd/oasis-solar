@@ -59,4 +59,14 @@ export const uploadManutencao = multer({
   },
 });
 
+// PDFs de faturamento Fit (em memória — extraímos texto e opcionalmente salvamos em disco)
+export const uploadFitPDF = multer({
+  storage,
+  limits: { fileSize: env.UPLOAD_MAX_BYTES },
+  fileFilter: (req, file, cb) => {
+    const ok = file.mimetype === 'application/pdf' || /\.pdf$/i.test(file.originalname);
+    cb(ok ? null : new Error('Apenas arquivos PDF são aceitos'), ok);
+  },
+});
+
 export { UPLOAD_ROOT };

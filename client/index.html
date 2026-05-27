@@ -27,6 +27,7 @@
     <div class="nav-item" data-section="manutencao"><i class="fas fa-tools"></i>Manutenção</div>
     <div class="sb-lbl">Análise</div>
     <div class="nav-item" data-section="financeiro"><i class="fas fa-dollar-sign"></i>Financeiro</div>
+    <div class="nav-item" data-section="fit"><i class="fas fa-receipt"></i>Fit Energia</div>
     <div class="nav-item" data-section="comparativo"><i class="fas fa-balance-scale"></i>Comparativo</div>
     <div class="nav-item" data-section="relatorio"><i class="fas fa-file-alt"></i>Relatório</div>
     <div class="sb-lbl" data-role="ADMIN">Administração</div>
@@ -45,7 +46,8 @@
 
 <div class="main">
   <div class="topbar">
-    <div>
+    <button class="tb-btn menu-toggle" id="btnMenu" title="Menu" style="display:none;margin-right:8px"><i class="fas fa-bars"></i></button>
+    <div style="flex:1;min-width:0">
       <div class="pg-title" id="pgTitle">Painel Principal</div>
       <div class="pg-bread" id="pgBread">Visão geral do parque fotovoltaico</div>
     </div>
@@ -278,6 +280,56 @@
     <div class="tcard">
       <div class="thead-bar"><div class="tcard-title">Extrato</div></div>
       <table><thead><tr><th>Data</th><th>Usina</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor (R$)</th><th>Status</th><th></th></tr></thead><tbody id="finTbl"></tbody></table>
+    </div>
+  </div>
+
+  <!-- FIT ENERGIA -->
+  <div id="sec-fit" class="section">
+    <div class="sec-bar">
+      <div><div class="sec-title">Fit Energia</div><div class="sec-desc">Relatórios de faturamento (PDF) com comparativo geração × faturamento</div></div>
+      <button class="btn btn-p" id="btnFitUpload" data-role="ADMIN,TECNICO"><i class="fas fa-file-pdf"></i> Carregar PDF</button>
+    </div>
+    <div class="fbar">
+      <span class="flbl">Filtros</span>
+      <select class="fsel" id="fitFU"><option value="">Todas as usinas</option></select>
+      <select class="fsel" id="fitFA"></select>
+      <select class="fsel" id="fitFM">
+        <option value="">Todos os meses</option>
+        <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option>
+        <option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option>
+        <option value="07">Jul</option><option value="08">Ago</option><option value="09">Set</option>
+        <option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
+      </select>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid" id="fitKpi" style="grid-template-columns:repeat(4,1fr)"></div>
+
+    <!-- Tabela de relatórios -->
+    <div class="tcard">
+      <div class="thead-bar">
+        <div class="tcard-title">Relatórios Fit</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Período</th><th>Usina</th><th>Distribuidora</th>
+            <th>Geração Relatório (kWh)</th><th>Geração Usina (kWh)</th>
+            <th>Diferença</th>
+            <th>Valor Faturado</th><th>Tarifa (R$/kWh)</th>
+            <th>PDF</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="fitTbl"></tbody>
+      </table>
+    </div>
+
+    <!-- Gráfico comparativo -->
+    <div class="ch-card">
+      <div class="ch-head">
+        <div><div class="ch-title">Comparativo Mensal — Geração Usina × Relatório Fit</div><div class="ch-sub" id="fitChartSub">kWh por mês</div></div>
+      </div>
+      <canvas id="fitChart" style="max-height:260px"></canvas>
     </div>
   </div>
 
@@ -530,6 +582,45 @@
   </div>
 </div>
 
+<!-- MODAL FIT ENERGIA -->
+<div class="moverlay" id="mFit">
+  <div class="modal" style="width:780px;max-width:96vw">
+    <div class="mh">
+      <div class="mt" id="mFitTitle"><i class="fas fa-receipt" style="color:var(--p);margin-right:7px"></i>Carregar Relatório Fit Energia</div>
+      <button class="mclose" data-close="mFit"><i class="fas fa-times"></i></button>
+    </div>
+
+    <!-- Step 1: upload -->
+    <div id="fitStep1">
+      <div class="alert alert-i"><i class="fas fa-info-circle"></i><div>Faça upload do PDF de faturamento da distribuidora. O sistema tenta extrair automaticamente: <strong>período, geração, valor faturado, distribuidora</strong>. Você confirma/edita antes de salvar.</div></div>
+      <div class="fgrp">
+        <label class="flabel">Usina <span class="req">*</span></label>
+        <select class="fselect" id="fitUsina"><option value="">— Selecionar —</option></select>
+      </div>
+      <div class="fgrp" style="margin-top:14px">
+        <label class="flabel">Arquivo PDF <span class="req">*</span></label>
+        <div class="import-zone" id="fitZone">
+          <i class="fas fa-file-pdf"></i>
+          <strong>Clique ou arraste o PDF</strong><br>
+          <small>Faturamento mensal da distribuidora</small>
+        </div>
+        <input type="file" id="fitFile" accept=".pdf,application/pdf" style="display:none">
+      </div>
+    </div>
+
+    <!-- Step 2: preview/editar -->
+    <div id="fitStep2" style="display:none"></div>
+
+    <input type="hidden" id="fitEditId">
+
+    <div class="mfoot">
+      <button class="btn btn-o" data-close="mFit">Fechar</button>
+      <button class="btn btn-er" id="btnFitBack" style="display:none">← Voltar</button>
+      <button class="btn btn-p" id="btnFitSave" style="display:none"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL IMPORTAR CSV FINANCEIRO -->
 <div class="moverlay" id="mImpFin">
   <div class="modal" style="width:900px;max-width:96vw">
@@ -605,6 +696,11 @@
         <label class="flabel">Usinas acessíveis</label>
         <div style="font-size:11px;color:var(--t3);margin-bottom:6px" id="uUsinasHelp">Marque as usinas que este usuário pode visualizar. Se nenhuma estiver marcada, verá <strong>todas</strong>.</div>
         <div id="uUsinasList" style="background:var(--bg);border:1px solid var(--bd);border-radius:var(--r1);padding:10px;max-height:220px;overflow-y:auto"></div>
+      </div>
+      <div class="fgrp full" id="uPermsWrap">
+        <label class="flabel">Permissões por aba</label>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:6px">Sobrepõe os defaults do perfil. Marque <strong>Ver</strong> para acessar a aba e <strong>Editar</strong> para criar/alterar/excluir.</div>
+        <div id="uPermsList" style="background:var(--bg);border:1px solid var(--bd);border-radius:var(--r1);padding:8px;overflow-y:auto;max-height:260px"></div>
       </div>
     </div>
     <input type="hidden" id="uEditId">

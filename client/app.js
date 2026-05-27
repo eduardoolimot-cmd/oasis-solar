@@ -18,7 +18,7 @@ const state = {
   financeiro: [],
   notificacoes: [],
   socket: null,
-  charts: { main: null, pie: null, fin: null, finCat: null, irrad: null, yieldCh: null, comp: null },
+  charts: { main: null, pie: null, fin: null, finCat: null, irrad: null, yieldCh: null, comp: null, fit: null },
   finCatTipo: 'des', // 'des' = despesas (default), 'rec' = receitas
   dragManutId: null,
 };
@@ -45,6 +45,7 @@ const state = {
   preencherSelectAno('cAno', false);
   preencherSelectAno('relGerAno', false);
   preencherSelectAno('relFinAno', false);
+  preencherSelectAno('fitFA', false);
   $('lPer').value = new Date().toISOString().slice(0, 7);
   const mesAtual = String(new Date().getMonth() + 1).padStart(2, '0');
   if ($('relGerMes')) $('relGerMes').value = mesAtual;
@@ -59,6 +60,7 @@ function prepararUI() {
   $('userRole').textContent = u.role;
   $('userAv').textContent = u.nome.slice(0, 2).toUpperCase();
   aplicarRoleUI(u.role);
+  aplicarPermissoesUI(); // esconde abas/botões sem permissão
 
   // Clicar no badge desloga
   $('userBadge').addEventListener('click', async () => {
@@ -66,6 +68,27 @@ function prepararUI() {
     await api.post('/auth/logout').catch(() => {});
     location.href = './login.html';
   });
+}
+
+function aplicarPermissoesUI() {
+  const perms = state.user.permissoes || {};
+  // Esconde itens de menu cuja seção não tem 'ver'
+  $$('.nav-item[data-section]').forEach((el) => {
+    const s = el.dataset.section;
+    if (perms[s] && perms[s].ver === false) {
+      el.style.display = 'none';
+    }
+  });
+  // Marca data-secao no body para CSS condicional (opcional)
+  document.body.dataset.podeEditar = Object.entries(perms)
+    .filter(([_, p]) => p.editar)
+    .map(([k]) => k).join(',');
+}
+
+// Helper para verificar se pode editar uma seção (usado em renders)
+function podeEditar(secao) {
+  const p = state.user?.permissoes?.[secao];
+  return p ? p.editar : ['ADMIN', 'TECNICO'].includes(state.user?.role);
 }
 
 // =====================================================
@@ -78,6 +101,7 @@ const SECTIONS = {
   importar: { t: 'Importar Planilha', d: 'Inserir dados via CSV' },
   manutencao: { t: 'Manutenção', d: 'Kanban de OS' },
   financeiro: { t: 'Financeiro', d: 'Receitas e despesas' },
+  fit: { t: 'Fit Energia', d: 'Relatórios de faturamento (PDF)' },
   comparativo: { t: 'Comparativo', d: 'Comparação entre usinas' },
   relatorio: { t: 'Relatório', d: 'Geração de PDFs' },
   usuarios: { t: 'Gerenciamento de Usuários', d: 'Acesso administrativo' },
@@ -85,7 +109,23 @@ const SECTIONS = {
 
 function setupNav() {
   $$('.nav-item').forEach((el) => {
-    el.addEventListener('click', () => abrirSecao(el.dataset.section));
+    el.addEventListener('click', () => {
+      abrirSecao(el.dataset.section);
+      document.body.classList.remove('sb-open'); // fecha drawer no mobile
+    });
+  });
+  // Hambúrguer no mobile
+  $('btnMenu')?.addEventListener('click', () => {
+    document.body.classList.toggle('sb-open');
+  });
+  // Clicar fora fecha
+  document.addEventListener('click', (e) => {
+    if (!document.body.classList.contains('sb-open')) return;
+    const sb = document.querySelector('.sb');
+    const btn = $('btnMenu');
+    if (sb && !sb.contains(e.target) && !btn.contains(e.target)) {
+      document.body.classList.remove('sb-open');
+    }
   });
 }
 
@@ -107,6 +147,7 @@ async function abrirSecao(name) {
   if (name === 'comparativo') await renderComparativo();
   if (name === 'relatorio') await renderRelatorio();
   if (name === 'usuarios') await renderUsuarios();
+  if (name === 'fit') await renderFit();
 }
 
 // =====================================================
@@ -125,6 +166,8 @@ async function carregarUsinas() {
   preencherSelectUsinas('impUsina', state.usinas, { prefix: '— Selecionar —' });
   preencherSelectUsinas('relGerUsina', state.usinas, { prefix: '— Selecionar —' });
   preencherSelectUsinas('relFinUsina', state.usinas, { prefix: 'Todas as usinas' });
+  preencherSelectUsinas('fitFU', state.usinas, { prefix: 'Todas as usinas' });
+  preencherSelectUsinas('fitUsina', state.usinas, { prefix: '— Selecionar —' });
   atualizarSkidSelect();
 }
 
@@ -1579,6 +1622,299 @@ async function confirmarImportFin() {
 }
 
 // =====================================================
+// FIT ENERGIA — relatórios de faturamento
+// =====================================================
+async function renderFit() {
+  const fu = $('fitFU').value;
+  const fa = $('fitFA').value;
+  const fm = $('fitFM').value;
+  const qs = new URLSearchParams();
+  if (fu) qs.set('usinaId', fu);
+  if (fa) qs.set('ano', fa);
+  if (fm) qs.set('mes', fm);
+
+  let lista;
+  try {
+    lista = await api.get('/fit?' + qs);
+  } catch (e) {
+    toast(e.message, 'er');
+    return;
+  }
+  state.fits = lista;
+
+  // KPIs agregados
+  const totalGer = lista.reduce((s, x) => s + (x.geracaoKwh || 0), 0);
+  const totalVal = lista.reduce((s, x) => s + (x.valorFaturado || 0), 0);
+  const tarifaMedia = totalGer ? totalVal / totalGer : 0;
+  $('fitKpi').innerHTML = `
+    <div class="fin-card"><div class="fin-lbl">Relatórios</div><div class="fin-val">${lista.length}</div><div class="fin-sub">${fa || 'todos'}${fm ? ' / ' + fm : ''}</div></div>
+    <div class="fin-card"><div class="fin-lbl">Geração Total (Fit)</div><div class="fin-val" style="color:var(--p)">${fmtNum(totalGer)}</div><div class="fin-sub">kWh</div></div>
+    <div class="fin-card"><div class="fin-lbl">Faturado Total</div><div class="fin-val" style="color:var(--ok)">${fmtBRL(totalVal)}</div><div class="fin-sub">Bruto</div></div>
+    <div class="fin-card"><div class="fin-lbl">Tarifa Média</div><div class="fin-val">R$ ${tarifaMedia.toFixed(4)}</div><div class="fin-sub">por kWh</div></div>
+  `;
+
+  // Comparativo geração usina x fit
+  const compR = await api.get('/fit/relatorio/comparativo?' + qs);
+
+  // Tabela — junta dados de lista + comparativo
+  const compByKey = new Map();
+  for (const c of compR.items) compByKey.set(`${c.usinaId}|${c.periodo}`, c);
+
+  const canEdit = ['ADMIN', 'TECNICO'].includes(state.user.role);
+  $('fitTbl').innerHTML = lista.length
+    ? lista.map((f) => {
+      const k = `${f.usinaId}|${f.periodo}`;
+      const comp = compByKey.get(k);
+      const geracaoUsina = comp?.geracaoUsina || 0;
+      const diff = comp?.diff || 0;
+      const corDiff = diff > 0 ? 'var(--p)' : diff < 0 ? 'var(--er)' : 'var(--t3)';
+      return `<tr>
+        <td><strong>${fmtPeriodo(f.periodo)}</strong></td>
+        <td>${f.usinaNome}</td>
+        <td>${f.distribuidora || '—'}</td>
+        <td><strong>${fmtNum(f.geracaoKwh, 1)}</strong></td>
+        <td>${geracaoUsina ? fmtNum(geracaoUsina, 0) : '<span class="td2">sem dado</span>'}</td>
+        <td style="color:${corDiff};font-weight:700">${geracaoUsina ? (diff > 0 ? '+' : '') + fmtNum(diff, 0) + ' kWh' : '—'}</td>
+        <td style="font-weight:700;color:var(--ok)">${fmtBRL(f.valorFaturado)}</td>
+        <td>R$ ${f.tarifa.toFixed(4)}</td>
+        <td>${f.arquivoUrl ? `<a href="/uploads/${f.arquivoUrl}" target="_blank" class="bico" title="${f.arquivoNome}"><i class="fas fa-file-pdf"></i></a>` : f.arquivoNome ? `<span class="td2" title="${f.arquivoNome}"><i class="fas fa-file-alt"></i></span>` : '—'}</td>
+        <td style="white-space:nowrap">${canEdit ? `
+          <button class="bico" data-edit-fit="${f.id}" title="Editar"><i class="fas fa-edit"></i></button>
+          <button class="bico er" data-del-fit="${f.id}" title="Excluir"><i class="fas fa-trash"></i></button>` : ''}</td>
+      </tr>`;
+    }).join('')
+    : '<tr><td colspan="10" style="text-align:center;color:var(--t3);padding:22px">Nenhum relatório carregado ainda</td></tr>';
+
+  $$('[data-edit-fit]').forEach((b) => b.addEventListener('click', () => editarFit(b.dataset.editFit)));
+  $$('[data-del-fit]').forEach((b) => b.addEventListener('click', () => deletarFit(b.dataset.delFit)));
+
+  // Gráfico comparativo
+  renderFitChart(compR.items, fa);
+}
+
+function renderFitChart(items, ano) {
+  const ctx = $('fitChart')?.getContext('2d');
+  if (!ctx) return;
+  if (state.charts.fit) state.charts.fit.destroy();
+
+  // Agrega por mês (1..12) somando todas as usinas
+  const usinaMes = Array.from({ length: 12 }, () => 0);
+  const fitMes = Array.from({ length: 12 }, () => 0);
+  for (const it of items) {
+    const mes = parseInt(it.periodo.split('-')[1]);
+    if (mes >= 1 && mes <= 12) {
+      usinaMes[mes - 1] += it.geracaoUsina;
+      fitMes[mes - 1] += it.geracaoFit;
+    }
+  }
+
+  state.charts.fit = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: MO,
+      datasets: [
+        {
+          label: 'Geração Usina (medida)',
+          data: usinaMes,
+          backgroundColor: 'rgba(0,87,184,.78)',
+          borderColor: '#0057B8',
+          borderRadius: 4,
+        },
+        {
+          label: 'Geração Relatório Fit',
+          data: fitMes,
+          backgroundColor: 'rgba(16,185,129,.78)',
+          borderColor: '#10B981',
+          borderRadius: 4,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmtNum(c.parsed.y, 0)} kWh` } },
+      },
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.04)' }, ticks: { callback: (v) => fmtNum(v, 0) + ' kWh' } },
+        x: { grid: { display: false } },
+      },
+    },
+  });
+  if ($('fitChartSub')) $('fitChartSub').textContent = `kWh por mês — ${ano || 'todos os anos'}`;
+}
+
+// ---- Upload modal ----
+let _fitPreview = null;
+
+function abrirFitModal() {
+  _fitPreview = null;
+  $('fitStep1').style.display = 'block';
+  $('fitStep2').style.display = 'none';
+  $('fitStep2').innerHTML = '';
+  $('btnFitSave').style.display = 'none';
+  $('btnFitBack').style.display = 'none';
+  $('fitUsina').value = '';
+  $('fitFile').value = '';
+  $('fitEditId').value = '';
+  $('mFitTitle').innerHTML = '<i class="fas fa-receipt" style="color:var(--p);margin-right:7px"></i>Carregar Relatório Fit Energia';
+  openM('mFit');
+}
+
+function setupFitUpload() {
+  const zone = $('fitZone');
+  const inp = $('fitFile');
+  if (!zone) return;
+  zone.addEventListener('click', () => inp.click());
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('drag');
+    if (e.dataTransfer.files[0]) processarFitPDF(e.dataTransfer.files[0]);
+  });
+  inp.addEventListener('change', (e) => {
+    if (e.target.files[0]) processarFitPDF(e.target.files[0]);
+    e.target.value = '';
+  });
+  $('btnFitBack').addEventListener('click', () => {
+    $('fitStep1').style.display = 'block';
+    $('fitStep2').style.display = 'none';
+    $('btnFitSave').style.display = 'none';
+    $('btnFitBack').style.display = 'none';
+    _fitPreview = null;
+  });
+  $('btnFitSave').addEventListener('click', confirmarFit);
+}
+
+async function processarFitPDF(file) {
+  const usinaId = $('fitUsina').value;
+  if (!usinaId) {
+    toast('Selecione a usina antes de enviar o PDF', 'er');
+    return;
+  }
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await api.upload('/fit/upload/preview', fd);
+    _fitPreview = { ...r, usinaId };
+    renderFitPreview(r);
+  } catch (e) {
+    toast(e.message, 'er');
+  }
+}
+
+function renderFitPreview(r) {
+  $('fitStep1').style.display = 'none';
+  $('fitStep2').style.display = 'block';
+  $('btnFitSave').style.display = '';
+  $('btnFitBack').style.display = '';
+
+  const anoAtual = new Date().getFullYear();
+  const ano = r.ano || anoAtual;
+  const mes = r.mes || (new Date().getMonth() + 1);
+
+  $('fitStep2').innerHTML = `
+    <div class="alert alert-ok"><i class="fas fa-check-circle"></i><div><strong>PDF processado!</strong> Confira/edite os dados abaixo e clique em Salvar.${r.paginas ? ` <em>(${r.paginas} página(s))</em>` : ''}</div></div>
+
+    <div class="fg">
+      <div class="fgrp"><label class="flabel">Ano <span class="req">*</span></label><input class="finput" type="number" id="fitAno" value="${ano}" min="2020" max="2099"></div>
+      <div class="fgrp"><label class="flabel">Mês <span class="req">*</span></label>
+        <select class="fselect" id="fitMes">
+          ${MO.map((m, i) => `<option value="${i + 1}" ${i + 1 === mes ? 'selected' : ''}>${m} (${String(i + 1).padStart(2, '0')})</option>`).join('')}
+        </select>
+      </div>
+      <div class="fgrp"><label class="flabel">Geração (kWh) <span class="req">*</span></label><input class="finput" type="number" step="0.01" id="fitGer" value="${r.geracaoKwh || 0}"></div>
+      <div class="fgrp"><label class="flabel">Valor faturado (R$) <span class="req">*</span></label><input class="finput" type="number" step="0.01" id="fitVal" value="${r.valorFaturado || 0}"></div>
+      <div class="fgrp"><label class="flabel">Tarifa (R$/kWh)</label><input class="finput" type="number" step="0.0001" id="fitTar" value="${r.tarifa || 0}" placeholder="auto: valor / geração"></div>
+      <div class="fgrp"><label class="flabel">Distribuidora</label><input class="finput" id="fitDist" value="${r.distribuidora || ''}" placeholder="Ex: EDP, Energisa"></div>
+      <div class="fgrp"><label class="flabel">Beneficiários (UCs)</label><input class="finput" type="number" id="fitBen" value="${r.beneficiarios || ''}"></div>
+      <div class="fgrp"><label class="flabel">Arquivo</label><input class="finput" id="fitArq" value="${r.arquivoNome || ''}" readonly></div>
+      <div class="fgrp full"><label class="flabel">Observações</label><textarea class="ftarea" id="fitObs" rows="2"></textarea></div>
+    </div>
+
+    ${r.rawText ? `<details style="margin-top:14px;font-size:11px;color:var(--t3)"><summary style="cursor:pointer">Ver texto bruto extraído do PDF</summary><pre style="background:var(--bg);padding:9px;border-radius:6px;max-height:200px;overflow:auto;font-size:10px;white-space:pre-wrap">${r.rawText.slice(0, 2000)}${r.rawText.length > 2000 ? '\n...(truncado)' : ''}</pre></details>` : ''}
+  `;
+
+  // Auto-recalcula tarifa quando muda geração ou valor
+  const recalc = () => {
+    const g = parseFloat($('fitGer').value) || 0;
+    const v = parseFloat($('fitVal').value) || 0;
+    if (g > 0) $('fitTar').value = (v / g).toFixed(4);
+  };
+  ['fitGer', 'fitVal'].forEach((id) => $(id)?.addEventListener('input', recalc));
+}
+
+async function confirmarFit() {
+  if (!_fitPreview) return;
+  const ano = parseInt($('fitAno').value);
+  const mes = parseInt($('fitMes').value);
+  if (!ano || !mes) return toast('Informe ano e mês', 'er');
+  const payload = {
+    usinaId: _fitPreview.usinaId,
+    periodo: `${ano}-${String(mes).padStart(2, '0')}`,
+    geracaoKwh: parseFloat($('fitGer').value) || 0,
+    valorFaturado: parseFloat($('fitVal').value) || 0,
+    tarifa: parseFloat($('fitTar').value) || 0,
+    distribuidora: $('fitDist').value || null,
+    beneficiarios: parseInt($('fitBen').value) || null,
+    obs: $('fitObs').value || null,
+    arquivoNome: _fitPreview.arquivoNome || null,
+  };
+  if (!payload.geracaoKwh) return toast('Informe a geração', 'er');
+
+  $('btnFitSave').disabled = true;
+  $('btnFitSave').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+  try {
+    await api.post('/fit', payload);
+    toast('Relatório salvo!', 'ok');
+    closeM('mFit');
+    await renderFit();
+  } catch (e) {
+    toast(e.message, 'er');
+  } finally {
+    $('btnFitSave').disabled = false;
+    $('btnFitSave').innerHTML = '<i class="fas fa-save"></i> Salvar';
+  }
+}
+
+function editarFit(id) {
+  const f = state.fits?.find((x) => x.id === id);
+  if (!f) return;
+  abrirFitModal();
+  // Pula direto pro step 2 com os dados existentes
+  $('fitUsina').value = f.usinaId;
+  _fitPreview = {
+    usinaId: f.usinaId,
+    arquivoNome: f.arquivoNome,
+    geracaoKwh: f.geracaoKwh,
+    valorFaturado: f.valorFaturado,
+    tarifa: f.tarifa,
+    distribuidora: f.distribuidora,
+    beneficiarios: f.beneficiarios,
+    mes: parseInt(f.periodo.split('-')[1]),
+    ano: parseInt(f.periodo.split('-')[0]),
+    rawText: null,
+  };
+  renderFitPreview(_fitPreview);
+  // Preenche obs
+  setTimeout(() => { if ($('fitObs')) $('fitObs').value = f.obs || ''; }, 50);
+  $('mFitTitle').innerHTML = '<i class="fas fa-edit" style="color:var(--p);margin-right:7px"></i>Editar Relatório Fit';
+  $('fitEditId').value = f.id;
+}
+
+async function deletarFit(id) {
+  if (!confirm('Excluir este relatório Fit?')) return;
+  try {
+    await api.delete('/fit/' + id);
+    toast('Excluído', 'wn');
+    await renderFit();
+  } catch (e) {
+    toast(e.message, 'er');
+  }
+}
+
+// =====================================================
 // COMPARATIVO
 // =====================================================
 async function renderComparativo() {
@@ -1888,6 +2224,68 @@ function renderUserUsinasChecklist(usinaIdsMarcadas) {
     .join('');
 }
 
+const SECOES_LBL = {
+  dashboard: 'Painel Principal',
+  cadastro: 'Cadastro de Usinas',
+  lancamento: 'Lançamento de Dados',
+  importar: 'Importar Planilha',
+  manutencao: 'Manutenção (Kanban)',
+  financeiro: 'Financeiro',
+  fit: 'Fit Energia',
+  comparativo: 'Comparativo',
+  relatorio: 'Relatório',
+  usuarios: 'Usuários (Admin)',
+};
+const SECOES_ORDER = Object.keys(SECOES_LBL);
+
+// Defaults por role (espelhar do backend para preview correto sem chamar API)
+const DEFAULT_PERMS_FRONT = {
+  ADMIN:        Object.fromEntries(SECOES_ORDER.map((s) => [s, { ver: true, editar: true }])),
+  TECNICO:      Object.fromEntries(SECOES_ORDER.map((s) => [s, { ver: s !== 'usuarios', editar: s !== 'usuarios' }])),
+  VISUALIZADOR: Object.fromEntries(SECOES_ORDER.map((s) => [s, { ver: !['usuarios', 'importar'].includes(s), editar: false }])),
+};
+
+function renderUserPermsMatriz(role, overrides) {
+  const list = $('uPermsList');
+  if (!list) return;
+  // Calcula valor atual: override se houver, senão default do role
+  const defaults = DEFAULT_PERMS_FRONT[role] || DEFAULT_PERMS_FRONT.VISUALIZADOR;
+  const mapOverride = new Map((overrides || []).map((p) => [p.secao, p]));
+
+  list.innerHTML = `
+    <table style="width:100%;font-size:12px">
+      <thead style="background:transparent">
+        <tr>
+          <th style="text-align:left;background:transparent;color:var(--t2);padding:4px 6px;font-size:10px">Seção</th>
+          <th style="background:transparent;color:var(--t2);padding:4px 6px;font-size:10px;width:60px;text-align:center">Ver</th>
+          <th style="background:transparent;color:var(--t2);padding:4px 6px;font-size:10px;width:70px;text-align:center">Editar</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${SECOES_ORDER.map((s) => {
+          const d = defaults[s];
+          const o = mapOverride.get(s);
+          const ver = o ? o.podeVer : d.ver;
+          const edit = o ? o.podeEditar : d.editar;
+          return `
+            <tr>
+              <td style="padding:4px 6px"><strong>${SECOES_LBL[s]}</strong> <span style="color:var(--t3);font-size:10px">(default ${d.ver ? 'V' : '·'}${d.editar ? 'E' : '·'})</span></td>
+              <td style="padding:4px 6px;text-align:center"><input type="checkbox" data-perm-ver="${s}" ${ver ? 'checked' : ''} style="width:15px;height:15px;cursor:pointer"></td>
+              <td style="padding:4px 6px;text-align:center"><input type="checkbox" data-perm-edit="${s}" ${edit ? 'checked' : ''} style="width:15px;height:15px;cursor:pointer"></td>
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function lerPermsMatriz() {
+  return SECOES_ORDER.map((s) => ({
+    secao: s,
+    podeVer:    !!document.querySelector(`[data-perm-ver="${s}"]`)?.checked,
+    podeEditar: !!document.querySelector(`[data-perm-edit="${s}"]`)?.checked,
+  }));
+}
+
 function atualizarVisibilidadeUsinasWrap() {
   // ADMIN não tem restrição
   const role = $('uRole').value;
@@ -1903,6 +2301,7 @@ function abrirNovoUser() {
   $('uSenhaHint').innerHTML = '⚠️ Se deixar a senha em branco, será criada com a senha padrão <strong>1234</strong> (peça ao usuário para trocar no 1º login).';
   $('uAtivoWrap').style.display = 'none';
   renderUserUsinasChecklist([]);
+  renderUserPermsMatriz('VISUALIZADOR', []);
   atualizarVisibilidadeUsinasWrap();
   openM('mUser');
 }
@@ -1921,6 +2320,7 @@ function abrirEditarUser(id) {
   $('uAtivoWrap').style.display = 'block';
   $('uAtivo').value = u.ativo ? 'true' : 'false';
   renderUserUsinasChecklist(u.usinaIds || []);
+  renderUserPermsMatriz(u.role, u.permissoes || []);
   atualizarVisibilidadeUsinasWrap();
   openM('mUser');
 }
@@ -1944,13 +2344,14 @@ async function salvarUser() {
     const usinaIds = [...document.querySelectorAll('[data-user-usina]:checked')].map(
       (c) => c.value,
     );
+    const permissoes = lerPermsMatriz();
     if (id) {
-      const payload = { nome, role, ativo: $('uAtivo').value === 'true', usinaIds };
+      const payload = { nome, role, ativo: $('uAtivo').value === 'true', usinaIds, permissoes };
       if (senha) payload.senha = senha;
       await api.put(`/admin/usuarios/${id}`, payload);
       toast('Usuário atualizado', 'ok');
     } else {
-      const r = await api.post('/admin/usuarios', { email, nome, role, senha, usinaIds });
+      const r = await api.post('/admin/usuarios', { email, nome, role, senha, usinaIds, permissoes });
       if (r?.senhaPadrao) {
         toast(`Usuário criado com senha padrão: 1234`, 'wn');
       } else {
@@ -2039,7 +2440,7 @@ function conectarSocket() {
     });
 
     // Handlers de eventos do servidor (broadcast)
-    const eventos = ['usina', 'lancamento', 'manutencao', 'financeiro', 'notificacao'];
+    const eventos = ['usina', 'lancamento', 'manutencao', 'financeiro', 'notificacao', 'fit'];
     eventos.forEach((recurso) => {
       ['created', 'updated', 'deleted'].forEach((acao) => {
         state.socket.on(`${recurso}:${acao}`, () => onRemoteChange(recurso, acao));
@@ -2059,6 +2460,7 @@ const recarregarSecaoDebounced = debounce(async () => {
   if (active === 'financeiro') await renderFinanceiro();
   if (active === 'comparativo') await renderComparativo();
   if (active === 'usuarios') await renderUsuarios();
+  if (active === 'fit') await renderFit();
 }, 300);
 
 async function onRemoteChange(recurso, acao) {
@@ -2198,7 +2600,16 @@ function setupEventos() {
   // Usuários
   $('btnNovoUser').addEventListener('click', abrirNovoUser);
   $('btnSaveUser').addEventListener('click', salvarUser);
-  $('uRole').addEventListener('change', atualizarVisibilidadeUsinasWrap);
+  $('uRole').addEventListener('change', () => {
+    atualizarVisibilidadeUsinasWrap();
+    // Recarrega matriz com defaults do novo role (sem overrides)
+    renderUserPermsMatriz($('uRole').value, []);
+  });
+
+  // Fit Energia
+  $('btnFitUpload').addEventListener('click', abrirFitModal);
+  setupFitUpload();
+  ['fitFU', 'fitFA', 'fitFM'].forEach((id) => $(id).addEventListener('change', renderFit));
 
   // Exportações
   $('btnExpLancCSV').addEventListener('click', () => {

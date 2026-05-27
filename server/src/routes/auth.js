@@ -101,6 +101,7 @@ router.get(
         email: req.user.email,
         nome: req.user.nome,
         role: req.user.role,
+        permissoes: req.user.permissoes, // mapa { secao: { ver, editar } }
       },
     });
   }),

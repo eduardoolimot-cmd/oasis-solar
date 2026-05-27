@@ -2,6 +2,7 @@
 import { COOKIE_NAME, verifyToken } from '../lib/jwt.js';
 import { httpErrors } from '../lib/http.js';
 import { prisma } from '../db.js';
+import { calcularPermissoes } from '../lib/permissoes.js';
 
 /**
  * Verifica o cookie JWT, carrega o usuário do banco e popula req.user.
@@ -28,6 +29,7 @@ export async function requireAuth(req, res, next) {
         role: true,
         ativo: true,
         acessos: { select: { usinaId: true } },
+        permissoes: { select: { secao: true, podeVer: true, podeEditar: true } },
       },
     });
 
@@ -44,6 +46,9 @@ export async function requireAuth(req, res, next) {
       user.allowedUsinaIds = user.acessos.map((a) => a.usinaId);
     }
     delete user.acessos;
+
+    // Calcula permissões finais (default do role + overrides)
+    user.permissoes = calcularPermissoes(user.role, user.permissoes);
 
     req.user = user;
     next();

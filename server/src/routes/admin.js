@@ -27,11 +27,23 @@ const userUpdateSchema = z.object({
   ativo: z.boolean().optional(),
   senha: z.string().min(4).optional().nullable(),
   usinaIds: z.array(z.string()).optional(),
+  permissoes: z.array(z.object({
+    secao: z.string(),
+    podeVer: z.boolean(),
+    podeEditar: z.boolean(),
+  })).optional(),
 });
 
-// Aceita usinaIds opcional no payload de criação
+const permissaoSchema = z.object({
+  secao: z.string().min(1),
+  podeVer: z.boolean(),
+  podeEditar: z.boolean(),
+});
+
+// Aceita usinaIds e permissoes opcionais no payload
 const userCreateExtSchema = userCreateSchema.extend({
   usinaIds: z.array(z.string()).optional(),
+  permissoes: z.array(permissaoSchema).optional(),
 });
 
 function shapeUser(u) {
@@ -44,6 +56,9 @@ function shapeUser(u) {
     ultimoLogin: u.ultimoLogin,
     createdAt: u.createdAt,
     usinaIds: u.acessos ? u.acessos.map((a) => a.usinaId) : undefined,
+    permissoes: u.permissoes
+      ? u.permissoes.map((p) => ({ secao: p.secao, podeVer: p.podeVer, podeEditar: p.podeEditar }))
+      : undefined,
   };
 }
 
@@ -53,7 +68,10 @@ router.get(
   asyncRoute(async (req, res) => {
     const users = await prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { acessos: { select: { usinaId: true } } },
+      include: {
+        acessos: { select: { usinaId: true } },
+        permissoes: { select: { secao: true, podeVer: true, podeEditar: true } },
+      },
     });
     res.json(users.map(shapeUser));
   }),
@@ -122,12 +140,9 @@ router.put(
         data: updateData,
       });
 
-      // Atualiza acessos por usina se vier no payload
       if (data.usinaIds !== undefined) {
-        // ADMIN não tem acessos restritos
         const finalRole = data.role ?? exists.role;
         const finalUsinaIds = finalRole === 'ADMIN' ? [] : data.usinaIds;
-
         await tx.usinaAccess.deleteMany({ where: { userId: u.id } });
         if (finalUsinaIds.length) {
           await tx.usinaAccess.createMany({
@@ -136,9 +151,25 @@ router.put(
         }
       }
 
+      // Atualiza permissões granulares (substitui inteiramente)
+      if (data.permissoes !== undefined) {
+        await tx.userPermission.deleteMany({ where: { userId: u.id } });
+        if (data.permissoes.length) {
+          await tx.userPermission.createMany({
+            data: data.permissoes.map((p) => ({
+              userId: u.id, secao: p.secao,
+              podeVer: p.podeVer, podeEditar: p.podeEditar,
+            })),
+          });
+        }
+      }
+
       return tx.user.findUnique({
         where: { id: u.id },
-        include: { acessos: { select: { usinaId: true } } },
+        include: {
+          acessos: { select: { usinaId: true } },
+          permissoes: { select: { secao: true, podeVer: true, podeEditar: true } },
+        },
       });
     });
 

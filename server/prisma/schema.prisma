@@ -35,6 +35,23 @@ model User {
   notificacoes Notificacao[]
   auditLogs    AuditLog[]
   acessos      UsinaAccess[]
+  fits         FitEnergia[]
+  permissoes   UserPermission[]
+}
+
+// Permissões granulares por seção do app.
+// Se um usuário não tem registro pra uma seção, herda o default do role.
+// Se tem registro, este SOBREPÕE o default.
+model UserPermission {
+  userId     String
+  secao      String // 'dashboard'|'cadastro'|'lancamento'|'importar'|'manutencao'|'financeiro'|'fit'|'comparativo'|'relatorio'|'usuarios'
+  podeVer    Boolean @default(true)
+  podeEditar Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, secao])
+  @@index([userId])
 }
 
 model UsinaAccess {
@@ -77,8 +94,35 @@ model Usina {
   manutencoes Manutencao[]
   financeiros Financeiro[]
   acessos     UsinaAccess[]
+  fits        FitEnergia[]
 
   @@index([nome])
+}
+
+// Relatórios de faturamento (Fit/Feed-in Tariff) importados de PDF
+model FitEnergia {
+  id            String  @id @default(cuid())
+  usinaId       String
+  periodo       String // YYYY-MM (mês de referência)
+  geracaoKwh    Float   @default(0) // geração reportada pelo relatório
+  valorFaturado Float   @default(0) // R$ faturado no período
+  tarifa        Float   @default(0) // R$/kWh efetiva (valor/geração)
+  distribuidora String?
+  beneficiarios Int? // qtd de UCs beneficiárias
+  arquivoUrl    String? // caminho relativo do PDF original
+  arquivoNome   String?
+  obs           String?
+  rawText       String? // texto bruto extraído (debug)
+
+  criadoPorId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  usina     Usina @relation(fields: [usinaId], references: [id], onDelete: Cascade)
+  criadoPor User? @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([usinaId, periodo])
+  @@index([periodo])
 }
 
 model Skid {

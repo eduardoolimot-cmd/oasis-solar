@@ -18,6 +18,7 @@ import notificacoesRoutes from './routes/notificacoes.js';
 import dashboardRoutes from './routes/dashboard.js';
 import relatorioRoutes from './routes/relatorio.js';
 import adminRoutes from './routes/admin.js';
+import fitRoutes from './routes/fit.js';
 import { setupRealtime } from './realtime.js';
 import { iniciarJobVencimento } from './jobs/manutencao-vencimento.js';
 
@@ -67,6 +68,7 @@ app.use('/api/notificacoes', notificacoesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/relatorio', relatorioRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/fit', fitRoutes);
 
 // 404 para qualquer /api/* não tratado
 app.use('/api', (req, res) => {

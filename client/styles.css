@@ -169,5 +169,58 @@ td{padding:9px 13px;font-size:13px;color:var(--t1);}
 .role-hide{display:none !important;}
 @media(max-width:1400px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.ch-grid{grid-template-columns:1fr}.kb-board{grid-template-columns:1fr}.fin-kpi{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:700px){.kpi-grid{grid-template-columns:1fr}.fg{grid-template-columns:1fr}}
+@media(max-width:700px){
+  .kpi-grid{grid-template-columns:1fr}
+  .fg{grid-template-columns:1fr}
+  .fin-kpi{grid-template-columns:1fr}
+  /* SIDEBAR vira drawer */
+  .menu-toggle{display:flex !important}
+  .sb{transform:translateX(-100%);transition:transform .25s ease;width:260px;}
+  body.sb-open .sb{transform:translateX(0);}
+  body.sb-open::before{
+    content:'';position:fixed;inset:0;background:rgba(0,15,40,.55);z-index:90;
+  }
+  .main{margin-left:0;}
+  /* TOPBAR encurta */
+  .topbar{padding:0 12px;height:54px;gap:6px;}
+  .pg-title{font-size:13px;}
+  .pg-bread{font-size:10px;}
+  .status-badge{display:none !important;}
+  .tb-btn{width:32px;height:32px;}
+  /* CONTENT */
+  .content{padding:14px 12px;}
+  /* CARDS */
+  .ch-card,.tcard,.kpi,.fin-card{padding:13px !important;}
+  .sec-bar{flex-direction:column;align-items:flex-start;gap:10px;}
+  .sec-bar > div:last-child{display:flex;width:100%;}
+  .sec-bar .btn{flex:1;justify-content:center;}
+  /* FILTROS — empilha */
+  .fbar{padding:9px 11px;gap:7px;}
+  .fbar select.fsel,.fbar input.finp,.fbar .btn{flex:1 1 calc(50% - 4px);min-width:0;font-size:12px;}
+  .fbar > span.flbl{flex:1 1 100%;}
+  /* TABELAS — scroll horizontal */
+  .tcard table{font-size:11px;display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;}
+  .tcard table thead th,.tcard table td{padding:7px 9px;}
+  /* MODAIS — full screen */
+  .moverlay{padding:0;}
+  .modal{width:100% !important;max-width:100% !important;min-height:100vh;border-radius:0;padding:18px 14px;}
+  .mfoot{flex-direction:column-reverse;gap:8px;}
+  .mfoot .btn{width:100%;justify-content:center;}
+  /* TABBAR (abas internas) */
+  .tabbar{flex-wrap:wrap;}
+  /* KANBAN colunas viram cards empilhados */
+  .kb-board{grid-template-columns:1fr;}
+  .kb-col{min-height:140px;}
+  /* CHARTS */
+  canvas{max-height:200px !important;}
+  /* NOTIFICAÇÕES */
+  .notif-panel{width:100%;}
+  /* SIDEBAR — sair de qualquer scroll horizontal */
+  .sb-nav{overflow-y:auto;}
+}
+/* Tablets retrato */
+@media(max-width:900px) and (min-width:701px){
+  .sec-bar{flex-wrap:wrap;}
+  .tcard table{font-size:12px;}
+}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:7px}
