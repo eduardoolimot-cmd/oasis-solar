@@ -76,14 +76,30 @@ router.get(
     const degPorUsina = Object.fromEntries(
       usinas.map((u) => [u.id, fatorDegradacao(u.inicio, anoCalculo)]),
     );
-    // kWp total das usinas no escopo (usado para yield agregado)
-    const kwpTotal = usinas.reduce((s, u) => s + (u.kwp || 0), 0);
+
+    // ---------- Escopo do cálculo: SKID ou Usina inteira ----------
+    // Quando f.skidId está setado, todos os cálculos devem usar:
+    //   - previsões com skidId === f.skidId
+    //   - kwp do SKID (não da usina)
+    // Senão, usa previsões da usina (skidId === null) e kwp da usina.
+    const skidFiltrado = f.skidId
+      ? usinas.flatMap((u) => u.skids).find((s) => s.id === f.skidId)
+      : null;
+
+    // Helper que retorna as previsões a usar para uma usina
+    const previsoesParaUsina = (u) =>
+      u.previsoes.filter((p) => (f.skidId ? p.skidId === f.skidId : p.skidId === null));
+
+    // kWp efetivo: do SKID se filtrado, senão da usina
+    const kwpEfetivo = (u) => (skidFiltrado && skidFiltrado.usinaId === u.id ? skidFiltrado.kwp : u.kwp);
+    const kwpTotal = f.skidId
+      ? (skidFiltrado?.kwp || 0)
+      : usinas.reduce((s, u) => s + (u.kwp || 0), 0);
 
     // Helper: soma previsão de um campo (gen/irrad) já aplicada degradação para 'gen'
     const somaPrevisao = (campo, mesFiltro) =>
       usinas.reduce((soma, u) => {
-        const prevs = u.previsoes
-          .filter((p) => p.skidId === null)
+        const prevs = previsoesParaUsina(u)
           .filter((p) => !mesFiltro || p.mes === mesFiltro);
         const valor = prevs.reduce((s, p) => s + (p[campo] || 0), 0);
         return soma + (campo === 'gen' ? valor * degPorUsina[u.id] : valor);
@@ -117,21 +133,24 @@ router.get(
       const gerReal = ls.reduce((s, l) => s + l.geracao, 0);
 
       // Soma previsões do mês, aplicando degradação por usina
+      // Quando há filtro de SKID, usa previsão do SKID em vez da usina
       let gerPrev = 0;
       let irradPrev = 0;
       let prPrev = 0;
       let countPrev = 0;
       usinas.forEach((u) => {
-        const p = u.previsoes.find((p) => p.mes === m && p.skidId === null);
-        if (!p) return;
-        gerPrev += (p.gen || 0) * degPorUsina[u.id];
-        if (p.irrad) {
-          irradPrev += p.irrad;
-          countPrev++;
-        }
-        if (p.pr) prPrev += p.pr;
+        const prevs = previsoesParaUsina(u).filter((p) => p.mes === m);
+        if (!prevs.length) return;
+        const genU = prevs.reduce((s, p) => s + (p.gen || 0), 0);
+        gerPrev += genU * degPorUsina[u.id];
+        const irrU = prevs.filter((p) => p.irrad).reduce((s, p) => s + p.irrad, 0);
+        const prU = prevs.filter((p) => p.pr).reduce((s, p) => s + p.pr, 0);
+        const nIrr = prevs.filter((p) => p.irrad).length;
+        const nPr = prevs.filter((p) => p.pr).length;
+        if (nIrr > 0) { irradPrev += irrU / nIrr; countPrev++; }
+        if (nPr > 0) prPrev += prU / nPr;
       });
-      if (countPrev > 0) irradPrev = irradPrev / countPrev; // média
+      if (countPrev > 0) irradPrev = irradPrev / countPrev;
       if (countPrev > 0) prPrev = prPrev / countPrev;
 
       const irradReal = ls.length
@@ -173,11 +192,9 @@ router.get(
     const porUsina = usinas.map((u) => {
       const ls = lancamentos.filter((l) => l.usinaId === u.id);
       const gR = ls.reduce((s, l) => s + l.geracao, 0);
-      const previsoesAnuais = u.previsoes.filter((p) => p.skidId === null);
+      // Quando há filtro de SKID, usa as previsões do SKID; senão, da usina
+      const previsoesAnuais = previsoesParaUsina(u);
 
-      // Filtro de previsão: respeita mês explícito; se não tiver, respeita os meses
-      // que realmente têm lançamento (para comparação justa). Se não tem nenhum
-      // lançamento ainda, mostra os 12 meses inteiros.
       let prevsParaSomar;
       if (mesFiltro) {
         prevsParaSomar = previsoesAnuais.filter((p) => p.mes === mesFiltro);
@@ -191,21 +208,23 @@ router.get(
 
       const pr = ls.length
         ? ls.reduce((s, l) => s + l.pr, 0) / ls.length
-        : u.previsoes[0]?.pr || 0;
+        : previsoesAnuais[0]?.pr || 0;
       const dsp = ls.length
         ? ls.reduce((s, l) => s + l.disp, 0) / ls.length
         : 0;
       const variacao = gP ? ((gR - gP) / gP) * 100 : 0;
+      // Yield usa o kWp efetivo (SKID se filtrado, senão usina)
+      const kwpU = kwpEfetivo(u);
 
       return {
         id: u.id,
-        nome: u.nome,
-        kwp: u.kwp,
+        nome: skidFiltrado && skidFiltrado.usinaId === u.id ? `${u.nome} / ${skidFiltrado.nome}` : u.nome,
+        kwp: kwpU,
         gerReal: gR,
         gerPrev: gP,
         variacao: +variacao.toFixed(1),
-        yieldReal: u.kwp ? +(gR / u.kwp).toFixed(2) : 0,
-        yieldPrev: u.kwp ? +(gP / u.kwp).toFixed(2) : 0,
+        yieldReal: kwpU ? +(gR / kwpU).toFixed(2) : 0,
+        yieldPrev: kwpU ? +(gP / kwpU).toFixed(2) : 0,
         pr: +pr.toFixed(2),
         disp: +dsp.toFixed(2),
         degradacao: +((1 - degPorUsina[u.id]) * 100).toFixed(2),
@@ -216,8 +235,8 @@ router.get(
 
     // ---------- Distribuição por usina (gráfico de pizza) ----------
     const distribuicao = usinas.map((u) => ({
-      nome: u.nome,
-      kwp: u.kwp,
+      nome: skidFiltrado && skidFiltrado.usinaId === u.id ? `${u.nome} / ${skidFiltrado.nome}` : u.nome,
+      kwp: kwpEfetivo(u),
       geracao: lancamentos
         .filter((l) => l.usinaId === u.id)
         .reduce((s, l) => s + l.geracao, 0),
