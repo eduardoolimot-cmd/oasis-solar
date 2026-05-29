@@ -658,7 +658,66 @@ function lerSkids() {
   return arr;
 }
 
+/**
+ * Calcula a previsão da USINA a partir dos SKIDs:
+ *   - gen   = soma dos gens dos SKIDs naquele mês
+ *   - irrad = média dos irrads dos SKIDs (apenas os que têm valor > 0)
+ *   - pr    = média dos PRs dos SKIDs (apenas os que têm valor > 0)
+ * Retorna array de 12 itens. Retorna null se não houver SKIDs com previsão.
+ */
+function calcularPrevisaoUsinaPorSkids() {
+  const skids = lerSkids().filter((s) => s.previsoes && s.previsoes.length);
+  if (!skids.length) return null;
+
+  const meses = [];
+  for (let m = 1; m <= 12; m++) {
+    let somaGen = 0;
+    const irrads = [];
+    const prs = [];
+    for (const s of skids) {
+      const p = s.previsoes.find((x) => x.mes === m);
+      if (!p) continue;
+      somaGen += p.gen || 0;
+      if (p.irrad > 0) irrads.push(p.irrad);
+      if (p.pr > 0) prs.push(p.pr);
+    }
+    meses.push({
+      mes: m,
+      gen: +somaGen.toFixed(2),
+      irrad: irrads.length ? +(irrads.reduce((a, b) => a + b, 0) / irrads.length).toFixed(2) : 0,
+      pr: prs.length ? +(prs.reduce((a, b) => a + b, 0) / prs.length).toFixed(2) : 0,
+    });
+  }
+  return meses;
+}
+
+/** Sobrescreve a tabela de previsão da usina com valores calculados dos SKIDs */
+function aplicarPrevisaoCalculadaDosSkids() {
+  const meses = calcularPrevisaoUsinaPorSkids();
+  if (!meses) {
+    toast('Nenhum SKID com previsão preenchida para calcular', 'wn');
+    return;
+  }
+  renderPrevTable(meses);
+  toast(`Previsão recalculada: ${meses.filter((m) => m.gen > 0).length} meses a partir dos SKIDs`, 'ok');
+}
+
 async function salvarUsina() {
+  let previsoesUsina = lerPrevTable();
+  const skids = lerSkids();
+
+  // Auto-calcula a previsão da usina a partir dos SKIDs SE:
+  //   - há SKIDs com previsões preenchidas
+  //   - a previsão da usina está vazia (ninguém digitou nada)
+  const algumSkidComPrev = skids.some((s) => s.previsoes?.length > 0);
+  if (algumSkidComPrev && previsoesUsina.length === 0) {
+    const auto = calcularPrevisaoUsinaPorSkids();
+    if (auto) {
+      previsoesUsina = auto.filter((m) => m.gen > 0 || m.irrad > 0 || m.pr > 0);
+      console.info(`[usina] previsão auto-calculada de ${skids.length} SKIDs`);
+    }
+  }
+
   const payload = {
     nome: $('cNome').value.trim(),
     kwp: parseFloat($('cKwp').value),
@@ -673,8 +732,8 @@ async function salvarUsina() {
     inversorQtd: parseInt($('cInvQ').value) || 0,
     inversorKw: parseInt($('cInvKw').value) || 110,
     inversorFab: $('cInvF').value || null,
-    previsoes: lerPrevTable(),
-    skids: lerSkids(),
+    previsoes: previsoesUsina,
+    skids,
   };
   if (!payload.nome || !payload.kwp) {
     toast('Preencha Nome e Potência (kWp)', 'er');
@@ -1671,6 +1730,7 @@ async function renderFit() {
       return `<tr>
         <td><strong>${fmtPeriodo(f.periodo)}</strong></td>
         <td>${f.usinaNome}</td>
+        <td class="td2">${f.skidNome || '—'}</td>
         <td>${f.distribuidora || '—'}</td>
         <td><strong>${fmtNum(f.geracaoKwh, 1)}</strong></td>
         <td>${geracaoUsina ? fmtNum(geracaoUsina, 0) : '<span class="td2">sem dado</span>'}</td>
@@ -1683,7 +1743,7 @@ async function renderFit() {
           <button class="bico er" data-del-fit="${f.id}" title="Excluir"><i class="fas fa-trash"></i></button>` : ''}</td>
       </tr>`;
     }).join('')
-    : '<tr><td colspan="10" style="text-align:center;color:var(--t3);padding:22px">Nenhum relatório carregado ainda</td></tr>';
+    : '<tr><td colspan="11" style="text-align:center;color:var(--t3);padding:22px">Nenhum relatório carregado ainda</td></tr>';
 
   $$('[data-edit-fit]').forEach((b) => b.addEventListener('click', () => editarFit(b.dataset.editFit)));
   $$('[data-del-fit]').forEach((b) => b.addEventListener('click', () => deletarFit(b.dataset.delFit)));
@@ -1757,8 +1817,34 @@ function abrirFitModal() {
   $('fitUsina').value = '';
   $('fitFile').value = '';
   $('fitEditId').value = '';
+  // Popula select de ano (5 anos pra trás e 1 pra frente)
+  const anoAtual = new Date().getFullYear();
+  $('fitAnoSel').innerHTML = '';
+  for (let y = anoAtual + 1; y >= anoAtual - 5; y--) {
+    $('fitAnoSel').innerHTML += `<option value="${y}" ${y === anoAtual ? 'selected' : ''}>${y}</option>`;
+  }
+  // Mês atual selecionado por padrão
+  $('fitMesSel').value = new Date().getMonth() + 1;
+  // SKID começa vazio (só popula quando escolher usina)
+  $('fitSkid').innerHTML = '<option value="">Geral (sem SKID específico)</option>';
   $('mFitTitle').innerHTML = '<i class="fas fa-receipt" style="color:var(--p);margin-right:7px"></i>Carregar Relatório Fit Energia';
   openM('mFit');
+}
+
+function atualizarFitSkidSelect() {
+  const usinaId = $('fitUsina')?.value || '';
+  const sel = $('fitSkid');
+  if (!sel) return;
+  const cur = sel.value;
+  let html = '<option value="">Geral (sem SKID específico)</option>';
+  if (usinaId) {
+    const u = state.usinas.find((x) => x.id === usinaId);
+    if (u?.skids?.length) {
+      html += u.skids.map((s) => `<option value="${s.id}">${s.nome}</option>`).join('');
+    }
+  }
+  sel.innerHTML = html;
+  if (cur && [...sel.options].some((o) => o.value === cur)) sel.value = cur;
 }
 
 function setupFitUpload() {
@@ -1789,16 +1875,31 @@ function setupFitUpload() {
 
 async function processarFitPDF(file) {
   const usinaId = $('fitUsina').value;
+  const skidId = $('fitSkid').value || null;
+  const anoForm = parseInt($('fitAnoSel').value);
+  const mesForm = parseInt($('fitMesSel').value);
   if (!usinaId) {
     toast('Selecione a usina antes de enviar o PDF', 'er');
+    return;
+  }
+  if (!anoForm || !mesForm) {
+    toast('Selecione ano e mês', 'er');
     return;
   }
   const fd = new FormData();
   fd.append('file', file);
   try {
     const r = await api.upload('/fit/upload/preview', fd);
-    _fitPreview = { ...r, usinaId };
-    renderFitPreview(r);
+    // Overrides do form têm prioridade sobre o que foi extraído do PDF
+    _fitPreview = {
+      ...r,
+      usinaId,
+      skidId,
+      ano: anoForm,         // override
+      mes: mesForm,         // override
+      periodo: `${anoForm}-${String(mesForm).padStart(2, '0')}`,
+    };
+    renderFitPreview(_fitPreview);
   } catch (e) {
     toast(e.message, 'er');
   }
@@ -1814,22 +1915,38 @@ function renderFitPreview(r) {
   const ano = r.ano || anoAtual;
   const mes = r.mes || (new Date().getMonth() + 1);
 
-  $('fitStep2').innerHTML = `
-    <div class="alert alert-ok"><i class="fas fa-check-circle"></i><div><strong>PDF processado!</strong> Confira/edite os dados abaixo e clique em Salvar.${r.paginas ? ` <em>(${r.paginas} página(s))</em>` : ''}</div></div>
+  // Info do SKID/usina pre-selecionados (resumo no topo)
+  const usinaNome = state.usinas.find((u) => u.id === r.usinaId)?.nome || '?';
+  const skidNome = r.skidId ? (state.usinas.find((u) => u.id === r.usinaId)?.skids?.find((s) => s.id === r.skidId)?.nome || '?') : null;
 
-    <div class="fg">
+  // Destaque do trecho "Geração deste mês" se foi encontrado
+  const trechoBox = r.trechoGeracao
+    ? `<div class="alert alert-i" style="margin-top:8px"><i class="fas fa-search"></i><div style="font-size:11px"><strong>Trecho encontrado no PDF:</strong><br><em>"${r.trechoGeracao}"</em></div></div>`
+    : '';
+
+  $('fitStep2').innerHTML = `
+    <div class="alert alert-ok"><i class="fas fa-check-circle"></i><div>
+      <strong>PDF processado!</strong> ${r.paginas ? `<em>(${r.paginas} página(s))</em>` : ''}
+      <br>📍 <strong>${usinaNome}</strong>${skidNome ? ` · SKID <strong>${skidNome}</strong>` : ''} · <strong>${MO[mes - 1]}/${ano}</strong>
+    </div></div>
+    ${trechoBox}
+
+    <div class="fg" style="margin-top:14px">
+      <div class="fgrp"><label class="flabel">Geração deste mês (kWh) <span class="req">*</span></label><input class="finput" type="number" step="0.01" id="fitGer" value="${r.geracaoKwh || 0}" style="font-weight:700;color:var(--p)"></div>
+      <div class="fgrp"><label class="flabel">Valor faturado (R$) <span class="req">*</span></label><input class="finput" type="number" step="0.01" id="fitVal" value="${r.valorFaturado || 0}"></div>
+      <div class="fgrp"><label class="flabel">Tarifa (R$/kWh)</label><input class="finput" type="number" step="0.0001" id="fitTar" value="${r.tarifa || 0}" placeholder="auto: valor / geração"></div>
+      <div class="fgrp"><label class="flabel">Distribuidora</label><input class="finput" id="fitDist" value="${r.distribuidora || ''}" placeholder="Ex: EDP, Energisa"></div>
+      <div class="fgrp"><label class="flabel">Beneficiários (UCs)</label><input class="finput" type="number" id="fitBen" value="${r.beneficiarios || ''}"></div>
+      <div class="fgrp"><label class="flabel">Arquivo</label><input class="finput" id="fitArq" value="${r.arquivoNome || ''}" readonly></div>
+
+      <!-- Ano/Mês ficam editáveis pra correção fácil caso o usuário tenha selecionado errado -->
       <div class="fgrp"><label class="flabel">Ano <span class="req">*</span></label><input class="finput" type="number" id="fitAno" value="${ano}" min="2020" max="2099"></div>
       <div class="fgrp"><label class="flabel">Mês <span class="req">*</span></label>
         <select class="fselect" id="fitMes">
           ${MO.map((m, i) => `<option value="${i + 1}" ${i + 1 === mes ? 'selected' : ''}>${m} (${String(i + 1).padStart(2, '0')})</option>`).join('')}
         </select>
       </div>
-      <div class="fgrp"><label class="flabel">Geração (kWh) <span class="req">*</span></label><input class="finput" type="number" step="0.01" id="fitGer" value="${r.geracaoKwh || 0}"></div>
-      <div class="fgrp"><label class="flabel">Valor faturado (R$) <span class="req">*</span></label><input class="finput" type="number" step="0.01" id="fitVal" value="${r.valorFaturado || 0}"></div>
-      <div class="fgrp"><label class="flabel">Tarifa (R$/kWh)</label><input class="finput" type="number" step="0.0001" id="fitTar" value="${r.tarifa || 0}" placeholder="auto: valor / geração"></div>
-      <div class="fgrp"><label class="flabel">Distribuidora</label><input class="finput" id="fitDist" value="${r.distribuidora || ''}" placeholder="Ex: EDP, Energisa"></div>
-      <div class="fgrp"><label class="flabel">Beneficiários (UCs)</label><input class="finput" type="number" id="fitBen" value="${r.beneficiarios || ''}"></div>
-      <div class="fgrp"><label class="flabel">Arquivo</label><input class="finput" id="fitArq" value="${r.arquivoNome || ''}" readonly></div>
+
       <div class="fgrp full"><label class="flabel">Observações</label><textarea class="ftarea" id="fitObs" rows="2"></textarea></div>
     </div>
 
@@ -1852,6 +1969,7 @@ async function confirmarFit() {
   if (!ano || !mes) return toast('Informe ano e mês', 'er');
   const payload = {
     usinaId: _fitPreview.usinaId,
+    skidId: _fitPreview.skidId || null,
     periodo: `${ano}-${String(mes).padStart(2, '0')}`,
     geracaoKwh: parseFloat($('fitGer').value) || 0,
     valorFaturado: parseFloat($('fitVal').value) || 0,
@@ -1882,10 +2000,13 @@ function editarFit(id) {
   const f = state.fits?.find((x) => x.id === id);
   if (!f) return;
   abrirFitModal();
-  // Pula direto pro step 2 com os dados existentes
+  // Pré-seleciona usina e SKID
   $('fitUsina').value = f.usinaId;
+  atualizarFitSkidSelect();
+  if (f.skidId) $('fitSkid').value = f.skidId;
   _fitPreview = {
     usinaId: f.usinaId,
+    skidId: f.skidId,
     arquivoNome: f.arquivoNome,
     geracaoKwh: f.geracaoKwh,
     valorFaturado: f.valorFaturado,
@@ -1897,7 +2018,6 @@ function editarFit(id) {
     rawText: null,
   };
   renderFitPreview(_fitPreview);
-  // Preenche obs
   setTimeout(() => { if ($('fitObs')) $('fitObs').value = f.obs || ''; }, 50);
   $('mFitTitle').innerHTML = '<i class="fas fa-edit" style="color:var(--p);margin-right:7px"></i>Editar Relatório Fit';
   $('fitEditId').value = f.id;
@@ -2498,8 +2618,26 @@ function setupEventos() {
       b.classList.add('active');
       $$('.tabcontent').forEach((t) => (t.style.display = 'none'));
       $(b.dataset.tab).style.display = 'block';
+
+      // Ao entrar na aba de Previsão Mensal, se a tabela está vazia E há SKIDs com previsão,
+      // sugere auto-calcular.
+      if (b.dataset.tab === 'tPrev') {
+        const prevAtual = lerPrevTable();
+        const skidsComPrev = lerSkids().some((s) => s.previsoes?.length > 0);
+        if (prevAtual.length === 0 && skidsComPrev) {
+          // Calcula automaticamente para o usuário ver os números (não precisa pedir confirmação)
+          const meses = calcularPrevisaoUsinaPorSkids();
+          if (meses) {
+            renderPrevTable(meses);
+            toast('Previsão preenchida automaticamente a partir dos SKIDs', 'info');
+          }
+        }
+      }
     }),
   );
+
+  // Botão "Calcular dos SKIDs" na aba Previsão
+  $('btnRecalcPrev')?.addEventListener('click', aplicarPrevisaoCalculadaDosSkids);
 
   // Lançamentos
   $('btnSaveLanc').addEventListener('click', salvarLanc);
@@ -2610,6 +2748,7 @@ function setupEventos() {
   $('btnFitUpload').addEventListener('click', abrirFitModal);
   setupFitUpload();
   ['fitFU', 'fitFA', 'fitFM'].forEach((id) => $(id).addEventListener('change', renderFit));
+  $('fitUsina')?.addEventListener('change', atualizarFitSkidSelect);
 
   // Exportações
   $('btnExpLancCSV').addEventListener('click', () => {

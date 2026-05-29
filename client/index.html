@@ -313,7 +313,7 @@
       <table>
         <thead>
           <tr>
-            <th>Período</th><th>Usina</th><th>Distribuidora</th>
+            <th>Período</th><th>Usina</th><th>SKID</th><th>Distribuidora</th>
             <th>Geração Relatório (kWh)</th><th>Geração Usina (kWh)</th>
             <th>Diferença</th>
             <th>Valor Faturado</th><th>Tarifa (R$/kWh)</th>
@@ -486,7 +486,10 @@
       </div>
     </div>
     <div id="tPrev" class="tabcontent" style="display:none">
-      <div class="alert alert-i"><i class="fas fa-info-circle"></i><div>Previsão anual para a usina (12 meses).</div></div>
+      <div class="alert alert-i" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div style="flex:1"><i class="fas fa-info-circle"></i> Previsão anual para a usina (12 meses). Se houver <strong>SKIDs cadastrados</strong>, você pode <strong>recalcular automaticamente</strong> somando os valores dos SKIDs.</div>
+        <button type="button" class="btn btn-p btn-sm" id="btnRecalcPrev" title="Geração = soma dos SKIDs · Irrad. e PR = média entre SKIDs"><i class="fas fa-calculator"></i> Calcular dos SKIDs</button>
+      </div>
       <table style="width:100%;font-size:12px"><thead><tr><th style="text-align:left;padding:6px">Mês</th><th>Geração Prev. (kWh)</th><th>Irrad. (kWh/m²)</th><th>PR (%)</th></tr></thead><tbody id="prevBody"></tbody></table>
     </div>
     <div id="tSkid" class="tabcontent" style="display:none">
@@ -592,10 +595,25 @@
 
     <!-- Step 1: upload -->
     <div id="fitStep1">
-      <div class="alert alert-i"><i class="fas fa-info-circle"></i><div>Faça upload do PDF de faturamento da distribuidora. O sistema tenta extrair automaticamente: <strong>período, geração, valor faturado, distribuidora</strong>. Você confirma/edita antes de salvar.</div></div>
-      <div class="fgrp">
-        <label class="flabel">Usina <span class="req">*</span></label>
-        <select class="fselect" id="fitUsina"><option value="">— Selecionar —</option></select>
+      <div class="alert alert-i"><i class="fas fa-info-circle"></i><div>Selecione <strong>usina, SKID (se houver), ano e mês</strong>, depois envie o PDF. O sistema tenta extrair <strong>"Geração deste mês", valor faturado e distribuidora</strong>. Tudo pode ser editado no preview.</div></div>
+      <div class="fg">
+        <div class="fgrp"><label class="flabel">Usina <span class="req">*</span></label>
+          <select class="fselect" id="fitUsina"><option value="">— Selecionar —</option></select>
+        </div>
+        <div class="fgrp"><label class="flabel">SKID (opcional)</label>
+          <select class="fselect" id="fitSkid"><option value="">Geral (sem SKID específico)</option></select>
+        </div>
+        <div class="fgrp"><label class="flabel">Ano <span class="req">*</span></label>
+          <select class="fselect" id="fitAnoSel"></select>
+        </div>
+        <div class="fgrp"><label class="flabel">Mês <span class="req">*</span></label>
+          <select class="fselect" id="fitMesSel">
+            <option value="1">Janeiro (01)</option><option value="2">Fevereiro (02)</option><option value="3">Março (03)</option>
+            <option value="4">Abril (04)</option><option value="5">Maio (05)</option><option value="6">Junho (06)</option>
+            <option value="7">Julho (07)</option><option value="8">Agosto (08)</option><option value="9">Setembro (09)</option>
+            <option value="10">Outubro (10)</option><option value="11">Novembro (11)</option><option value="12">Dezembro (12)</option>
+          </select>
+        </div>
       </div>
       <div class="fgrp" style="margin-top:14px">
         <label class="flabel">Arquivo PDF <span class="req">*</span></label>
