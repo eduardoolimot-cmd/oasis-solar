@@ -2035,6 +2035,215 @@ async function deletarFit(id) {
 }
 
 // =====================================================
+// FIT ENERGIA — Import via Excel
+// =====================================================
+let _fitXlsPreview = null;
+
+function abrirFitXlsModal() {
+  _fitXlsPreview = null;
+  $('fitXlsStep1').style.display = 'block';
+  $('fitXlsStep2').style.display = 'none';
+  $('fitXlsStep2').innerHTML = '';
+  $('btnFitXlsSave').style.display = 'none';
+  $('btnFitXlsBack').style.display = 'none';
+  $('fitXlsUsina').value = '';
+  $('fitXlsSkid').innerHTML = '<option value="">Geral (sem SKID específico)</option>';
+  $('fitXlsAno').value = new Date().getFullYear();
+  $('fitXlsFile').value = '';
+  // Popula usinas no select
+  preencherSelectUsinas('fitXlsUsina', state.usinas, { prefix: '— Selecionar —' });
+  openM('mFitXls');
+}
+
+function atualizarFitXlsSkidSelect() {
+  const usinaId = $('fitXlsUsina')?.value || '';
+  const sel = $('fitXlsSkid');
+  if (!sel) return;
+  let html = '<option value="">Geral (sem SKID específico)</option>';
+  if (usinaId) {
+    const u = state.usinas.find((x) => x.id === usinaId);
+    if (u?.skids?.length) {
+      html += u.skids.map((s) => `<option value="${s.id}">${s.nome}</option>`).join('');
+    }
+  }
+  sel.innerHTML = html;
+}
+
+function setupFitXlsUpload() {
+  const zone = $('fitXlsZone');
+  const inp = $('fitXlsFile');
+  if (!zone || !inp) return;
+  zone.addEventListener('click', () => inp.click());
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('drag');
+    if (e.dataTransfer.files[0]) processarFitXls(e.dataTransfer.files[0]);
+  });
+  inp.addEventListener('change', (e) => {
+    if (e.target.files[0]) processarFitXls(e.target.files[0]);
+    e.target.value = '';
+  });
+  $('btnFitXlsBack').addEventListener('click', () => {
+    $('fitXlsStep1').style.display = 'block';
+    $('fitXlsStep2').style.display = 'none';
+    $('btnFitXlsSave').style.display = 'none';
+    $('btnFitXlsBack').style.display = 'none';
+    _fitXlsPreview = null;
+  });
+  $('btnFitXlsSave').addEventListener('click', confirmarFitXls);
+  $('fitXlsUsina').addEventListener('change', atualizarFitXlsSkidSelect);
+}
+
+async function processarFitXls(file) {
+  const usinaId = $('fitXlsUsina').value;
+  if (!usinaId) {
+    toast('Selecione a usina antes de enviar o Excel', 'er');
+    return;
+  }
+  const fd = new FormData();
+  fd.append('file', file);
+  const anoFallback = $('fitXlsAno').value;
+  if (anoFallback) fd.append('anoFallback', anoFallback);
+
+  try {
+    const r = await api.upload('/fit/excel/preview', fd);
+    _fitXlsPreview = {
+      ...r,
+      usinaId,
+      skidId: $('fitXlsSkid').value || null,
+      arquivoNome: r.arquivoNome,
+    };
+    renderFitXlsPreview(_fitXlsPreview);
+  } catch (e) {
+    toast(e.message, 'er');
+  }
+}
+
+function renderFitXlsPreview(r) {
+  $('fitXlsStep1').style.display = 'none';
+  $('fitXlsStep2').style.display = 'block';
+  $('btnFitXlsSave').style.display = '';
+  $('btnFitXlsBack').style.display = '';
+
+  const usinaNome = state.usinas.find((u) => u.id === r.usinaId)?.nome || '?';
+  const skidNome = r.skidId ? (state.usinas.find((u) => u.id === r.usinaId)?.skids?.find((s) => s.id === r.skidId)?.nome || '?') : null;
+
+  // Constrói tabela de preview com inputs editáveis
+  const linhas = r.items.map((it, idx) => `
+    <tr data-fxrow="${idx}">
+      <td style="font-size:11px;color:var(--t3);text-align:center;width:40px">${it.linha || idx + 1}</td>
+      <td><input class="finput" id="fxPer_${idx}" type="month" value="${it.periodo}" style="padding:4px 6px;font-size:12px"></td>
+      <td><input class="finput" id="fxGer_${idx}" type="number" step="0.01" value="${it.geracaoKwh}" style="padding:4px 6px;font-size:12px"></td>
+      <td><input class="finput" id="fxVal_${idx}" type="number" step="0.01" value="${it.valorFaturado}" style="padding:4px 6px;font-size:12px"></td>
+      <td><input class="finput" id="fxTar_${idx}" type="number" step="0.0001" value="${it.tarifa || 0}" style="padding:4px 6px;font-size:12px"></td>
+      <td><input class="finput" id="fxDist_${idx}" value="${it.distribuidora || ''}" style="padding:4px 6px;font-size:12px" placeholder="—"></td>
+      <td><input class="finput" id="fxBen_${idx}" type="number" value="${it.beneficiarios || ''}" style="padding:4px 6px;font-size:12px" placeholder="—"></td>
+      <td style="text-align:center"><button class="bico er" data-fxdel="${idx}" title="Remover linha"><i class="fas fa-trash"></i></button></td>
+    </tr>`).join('');
+
+  const ignoradas = r.linhasIgnoradas?.length
+    ? `<div class="alert alert-wn" style="margin-top:13px"><i class="fas fa-exclamation-triangle"></i><div><strong>${r.linhasIgnoradas.length} linha(s) ignorada(s):</strong><br>${r.linhasIgnoradas.slice(0, 5).map((e) => `Linha ${e.linha}: ${e.motivo}`).join('<br>')}${r.linhasIgnoradas.length > 5 ? '<br>...' : ''}</div></div>`
+    : '';
+
+  $('fitXlsStep2').innerHTML = `
+    <div class="alert alert-ok"><i class="fas fa-check-circle"></i><div>
+      <strong>Planilha lida!</strong> ${r.items.length} linha(s) detectada(s) na aba <strong>"${r.sheetUsado}"</strong>.
+      <br>📍 <strong>${usinaNome}</strong>${skidNome ? ` · SKID <strong>${skidNome}</strong>` : ''}
+      <br>📁 ${r.arquivoNome}
+    </div></div>
+
+    <div class="fin-kpi" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+      <div class="fin-card"><div class="fin-lbl">Linhas</div><div class="fin-val">${r.resumo.totalItens}</div><div class="fin-sub">${r.resumo.ignoradas} ignorada(s)</div></div>
+      <div class="fin-card"><div class="fin-lbl">∑ Geração</div><div class="fin-val" style="color:var(--p);font-size:18px">${fmtNum(r.resumo.somaGeracao, 0)}</div><div class="fin-sub">kWh</div></div>
+      <div class="fin-card"><div class="fin-lbl">∑ Faturado</div><div class="fin-val" style="color:var(--ok);font-size:18px">${fmtBRL(r.resumo.somaValor)}</div></div>
+    </div>
+
+    <div style="font-size:12px;color:var(--t2);margin-bottom:6px"><i class="fas fa-edit"></i> Edite qualquer célula antes de confirmar. Use 🗑️ para remover linhas que não devem entrar.</div>
+
+    <div class="tcard" style="margin:0;overflow-x:auto">
+      <table style="min-width:780px">
+        <thead>
+          <tr>
+            <th style="text-align:center;width:40px">#</th>
+            <th>Período</th>
+            <th>Geração (kWh)</th>
+            <th>Valor (R$)</th>
+            <th>Tarifa (R$/kWh)</th>
+            <th>Distribuidora</th>
+            <th>UCs</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="fxTbody">${linhas}</tbody>
+      </table>
+    </div>
+
+    ${ignoradas}
+  `;
+
+  // Listeners de remover linha e auto-calc tarifa
+  $('fxTbody').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-fxdel]');
+    if (!btn) return;
+    const idx = btn.dataset.fxdel;
+    document.querySelector(`[data-fxrow="${idx}"]`)?.remove();
+  });
+  $('fxTbody').addEventListener('input', (e) => {
+    const idStr = e.target.id;
+    if (!idStr) return;
+    const m = idStr.match(/^(fxGer|fxVal)_(\d+)$/);
+    if (!m) return;
+    const idx = m[2];
+    const g = parseFloat($(`fxGer_${idx}`)?.value) || 0;
+    const v = parseFloat($(`fxVal_${idx}`)?.value) || 0;
+    if (g > 0 && $(`fxTar_${idx}`)) $(`fxTar_${idx}`).value = (v / g).toFixed(4);
+  });
+}
+
+async function confirmarFitXls() {
+  if (!_fitXlsPreview) return;
+  // Lê valores atuais da tabela (incluindo edições)
+  const rows = document.querySelectorAll('#fxTbody tr[data-fxrow]');
+  const items = [];
+  rows.forEach((tr) => {
+    const idx = tr.dataset.fxrow;
+    const periodo = $(`fxPer_${idx}`)?.value;
+    const geracaoKwh = parseFloat($(`fxGer_${idx}`)?.value) || 0;
+    const valorFaturado = parseFloat($(`fxVal_${idx}`)?.value) || 0;
+    const tarifa = parseFloat($(`fxTar_${idx}`)?.value) || 0;
+    const distribuidora = $(`fxDist_${idx}`)?.value || null;
+    const beneficiarios = parseInt($(`fxBen_${idx}`)?.value) || null;
+    if (!periodo || !/^\d{4}-(0[1-9]|1[0-2])$/.test(periodo)) return;
+    if (!geracaoKwh && !valorFaturado) return;
+    items.push({ periodo, geracaoKwh, valorFaturado, tarifa, distribuidora, beneficiarios });
+  });
+  if (!items.length) return toast('Nenhuma linha válida para importar', 'er');
+
+  const payload = {
+    usinaId: _fitXlsPreview.usinaId,
+    skidId: _fitXlsPreview.skidId || null,
+    items,
+    arquivoNome: _fitXlsPreview.arquivoNome,
+  };
+
+  $('btnFitXlsSave').disabled = true;
+  $('btnFitXlsSave').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...';
+  try {
+    const r = await api.post('/fit/excel/import', payload);
+    toast(`Import OK: ${r.added} novos, ${r.updated} atualizados${r.erros.length ? ` (${r.erros.length} erros)` : ''}`, 'ok');
+    closeM('mFitXls');
+    await renderFit();
+  } catch (e) {
+    toast(e.message, 'er');
+  } finally {
+    $('btnFitXlsSave').disabled = false;
+    $('btnFitXlsSave').innerHTML = '<i class="fas fa-save"></i> Confirmar e salvar';
+  }
+}
+
+// =====================================================
 // COMPARATIVO
 // =====================================================
 async function renderComparativo() {
@@ -2746,7 +2955,9 @@ function setupEventos() {
 
   // Fit Energia
   $('btnFitUpload').addEventListener('click', abrirFitModal);
+  $('btnFitUploadXls')?.addEventListener('click', abrirFitXlsModal);
   setupFitUpload();
+  setupFitXlsUpload();
   ['fitFU', 'fitFA', 'fitFM'].forEach((id) => $(id).addEventListener('change', renderFit));
   $('fitUsina')?.addEventListener('change', atualizarFitSkidSelect);
 

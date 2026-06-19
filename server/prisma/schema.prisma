@@ -103,6 +103,7 @@ model Usina {
 model FitEnergia {
   id            String  @id @default(cuid())
   usinaId       String
+  skidId        String? // opcional — pra distinguir SKIDs/inversores na mesma usina
   periodo       String // YYYY-MM (mês de referência)
   geracaoKwh    Float   @default(0) // geração reportada pelo relatório
   valorFaturado Float   @default(0) // R$ faturado no período
@@ -121,8 +122,9 @@ model FitEnergia {
   usina     Usina @relation(fields: [usinaId], references: [id], onDelete: Cascade)
   criadoPor User? @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
 
-  @@unique([usinaId, periodo])
+  @@unique([usinaId, skidId, periodo])
   @@index([periodo])
+  @@index([usinaId, skidId])
 }
 
 model Skid {

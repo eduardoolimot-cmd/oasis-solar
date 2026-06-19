@@ -150,6 +150,7 @@ export const dashboardFiltroSchema = z.object({
 // ---------- Fit Energia ----------
 export const fitEnergiaSchema = z.object({
   usinaId: z.string().min(1, 'Usina é obrigatória'),
+  skidId: z.string().optional().nullable(),
   periodo: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Período deve estar no formato YYYY-MM'),
   geracaoKwh: z.coerce.number().min(0).default(0),
   valorFaturado: z.coerce.number().min(0).default(0),
@@ -161,6 +162,7 @@ export const fitEnergiaSchema = z.object({
 
 export const fitFiltroSchema = z.object({
   usinaId: z.string().optional(),
+  skidId: z.string().optional(),
   ano: z.string().regex(/^\d{4}$/).optional(),
   mes: z.string().regex(/^(0[1-9]|1[0-2])$/).optional(),
 });

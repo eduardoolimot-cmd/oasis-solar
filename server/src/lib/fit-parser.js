@@ -76,19 +76,44 @@ function extrairPeriodo(text) {
   return { mes: null, ano: null };
 }
 
-/** Tenta extrair a geração em kWh (vários formatos possíveis) */
+/** Tenta extrair a geração em kWh — PRIORIZA "Geração deste mês" / "Geração do mês" */
 function extrairGeracao(text) {
-  // Procura padrões como "Geração: 175.420,5 kWh" ou "Energia injetada: 175420 kWh"
+  // Ordem de prioridade — do mais específico para o mais genérico
   const padroes = [
-    /(?:gera[çc][ãa]o|energia\s+(?:gerada|injetada|ativa)|consumo)[^0-9]{0,60}([\d.,]+)\s*kWh/i,
-    /([\d.,]+)\s*kWh[^0-9]{0,60}(?:gerada|injetada|gera[çc][ãa]o)/i,
-    /([\d.,]+)\s*kWh/i, // último recurso: primeiro número com kWh
+    // 1) "Geração deste mês: 175.420,5 kWh" (mais comum em relatórios brasileiros)
+    /gera[çc][ãa]o\s+deste\s+m[êe]s[^0-9]{0,30}([\d.,]+)\s*kWh/i,
+    // 2) "Geração do mês"
+    /gera[çc][ãa]o\s+(?:do|no)\s+m[êe]s[^0-9]{0,30}([\d.,]+)\s*kWh/i,
+    // 3) "Geração no período" / "Energia gerada no período"
+    /(?:energia\s+gerada|gera[çc][ãa]o)\s+no\s+per[íi]odo[^0-9]{0,30}([\d.,]+)\s*kWh/i,
+    // 4) "Energia injetada na rede"
+    /energia\s+injetada(?:\s+na\s+rede)?[^0-9]{0,30}([\d.,]+)\s*kWh/i,
+    // 5) "Total gerado" / "Geração total"
+    /(?:total\s+gerado|gera[çc][ãa]o\s+total)[^0-9]{0,30}([\d.,]+)\s*kWh/i,
+    // 6) "Energia ativa"
+    /energia\s+ativa[^0-9]{0,30}([\d.,]+)\s*kWh/i,
+    // 7) Genérico: "Geração: X kWh"
+    /gera[çc][ãa]o[^0-9]{0,30}([\d.,]+)\s*kWh/i,
+    // 8) Fallback: maior número seguido de kWh
+    /([\d.,]+)\s*kWh/gi,
   ];
+
   for (const p of padroes) {
-    const m = text.match(p);
-    if (m) {
-      const n = parseNumBR(m[1]);
-      if (n > 0 && n < 100000000) return n;
+    if (p.flags?.includes('g')) {
+      // Fallback: pega o MAIOR valor de kWh
+      let maior = 0;
+      const matches = [...text.matchAll(p)];
+      for (const m of matches) {
+        const n = parseNumBR(m[1]);
+        if (n > maior && n < 100000000) maior = n;
+      }
+      if (maior > 0) return maior;
+    } else {
+      const m = text.match(p);
+      if (m) {
+        const n = parseNumBR(m[1]);
+        if (n > 0 && n < 100000000) return n;
+      }
     }
   }
   return 0;
@@ -148,6 +173,11 @@ export async function parseFitPDF(buffer) {
   const beneficiarios = extrairBeneficiarios(text);
   const tarifa = geracao > 0 ? +(valor / geracao).toFixed(4) : 0;
 
+  // Procura o trecho de "Geração deste mês" para exibir na UI (ajuda o usuário a conferir)
+  const trecho = text.match(/.{0,80}gera[çc][ãa]o\s+deste\s+m[êe]s.{0,80}/i)?.[0]
+              || text.match(/.{0,80}gera[çc][ãa]o\s+(?:do|no)\s+m[êe]s.{0,80}/i)?.[0]
+              || null;
+
   return {
     periodo: mes && ano ? `${ano}-${String(mes).padStart(2, '0')}` : null,
     mes,
@@ -157,7 +187,8 @@ export async function parseFitPDF(buffer) {
     tarifa,
     distribuidora,
     beneficiarios,
-    rawText: text.slice(0, 8000), // limita pra não estourar DB
-    paginas: data.numpages,
+    trechoGeracao: trecho?.trim() || null,
+    rawText: text.slice(0, 8000),
+    paginas: data?.numpages || 1,
   };
 }

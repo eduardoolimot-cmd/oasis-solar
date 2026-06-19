@@ -287,7 +287,10 @@
   <div id="sec-fit" class="section">
     <div class="sec-bar">
       <div><div class="sec-title">Fit Energia</div><div class="sec-desc">Relatórios de faturamento (PDF) com comparativo geração × faturamento</div></div>
-      <button class="btn btn-p" id="btnFitUpload" data-role="ADMIN,TECNICO"><i class="fas fa-file-pdf"></i> Carregar PDF</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-o" id="btnFitUploadXls" data-role="ADMIN,TECNICO"><i class="fas fa-file-excel"></i> Carregar Excel</button>
+        <button class="btn btn-p" id="btnFitUpload" data-role="ADMIN,TECNICO"><i class="fas fa-file-pdf"></i> Carregar PDF</button>
+      </div>
     </div>
     <div class="fbar">
       <span class="flbl">Filtros</span>
@@ -635,6 +638,52 @@
       <button class="btn btn-o" data-close="mFit">Fechar</button>
       <button class="btn btn-er" id="btnFitBack" style="display:none">← Voltar</button>
       <button class="btn btn-p" id="btnFitSave" style="display:none"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FIT ENERGIA — IMPORT EXCEL -->
+<div class="moverlay" id="mFitXls">
+  <div class="modal" style="width:1000px;max-width:96vw">
+    <div class="mh">
+      <div class="mt" id="mFitXlsTitle"><i class="fas fa-file-excel" style="color:var(--ok);margin-right:7px"></i>Importar Faturamento Fit via Excel</div>
+      <button class="mclose" data-close="mFitXls"><i class="fas fa-times"></i></button>
+    </div>
+
+    <!-- Step 1 — Configurar -->
+    <div id="fitXlsStep1">
+      <div class="alert alert-i"><i class="fas fa-info-circle"></i><div>
+        Faça upload da planilha (.xlsx ou .xls). O sistema detecta automaticamente as colunas <strong>Período/Mês/Ano, Geração (kWh), Valor Faturado (R$)</strong> e tarifa/distribuidora se houver. Você confirma e edita linha a linha no preview.
+      </div></div>
+      <div class="fg">
+        <div class="fgrp"><label class="flabel">Usina <span class="req">*</span></label>
+          <select class="fselect" id="fitXlsUsina"><option value="">— Selecionar —</option></select>
+        </div>
+        <div class="fgrp"><label class="flabel">SKID (opcional)</label>
+          <select class="fselect" id="fitXlsSkid"><option value="">Geral (sem SKID específico)</option></select>
+        </div>
+        <div class="fgrp"><label class="flabel">Ano padrão (caso a planilha só traga o mês)</label>
+          <input class="finput" type="number" id="fitXlsAno" min="2020" max="2099" placeholder="Ex: 2026">
+        </div>
+      </div>
+      <div class="fgrp" style="margin-top:14px">
+        <label class="flabel">Arquivo Excel <span class="req">*</span></label>
+        <div class="import-zone" id="fitXlsZone">
+          <i class="fas fa-file-excel" style="color:var(--ok)"></i>
+          <strong>Clique ou arraste o Excel</strong><br>
+          <small>Aceita .xlsx, .xls ou .csv</small>
+        </div>
+        <input type="file" id="fitXlsFile" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" style="display:none">
+      </div>
+    </div>
+
+    <!-- Step 2 — Preview editável -->
+    <div id="fitXlsStep2" style="display:none"></div>
+
+    <div class="mfoot">
+      <button class="btn btn-o" data-close="mFitXls">Fechar</button>
+      <button class="btn btn-er" id="btnFitXlsBack" style="display:none">← Voltar</button>
+      <button class="btn btn-p" id="btnFitXlsSave" style="display:none"><i class="fas fa-save"></i> Confirmar e salvar</button>
     </div>
   </div>
 </div>

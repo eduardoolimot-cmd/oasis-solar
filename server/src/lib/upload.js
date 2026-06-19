@@ -69,4 +69,21 @@ export const uploadFitPDF = multer({
   },
 });
 
+// Excel (XLSX/XLS) — em memória pra parser ler do buffer direto
+export const uploadFitExcel = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: env.UPLOAD_MAX_BYTES },
+  fileFilter: (req, file, cb) => {
+    const ok =
+      /\.(xlsx|xls|xlsm|csv)$/i.test(file.originalname) ||
+      [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'application/vnd.ms-excel.sheet.macroenabled.12',
+        'text/csv',
+      ].includes(file.mimetype);
+    cb(ok ? null : new Error('Apenas Excel (.xlsx/.xls) ou CSV são aceitos'), ok);
+  },
+});
+
 export { UPLOAD_ROOT };
