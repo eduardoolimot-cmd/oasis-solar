@@ -10,10 +10,26 @@
 // O usuário sempre revisa/edita antes de salvar.
 // =================================================
 
-// pdf-parse 2.x exporta named { pdf }, v1.x exporta default.
-// Resolvemos os 2 formatos para o import funcionar em qualquer versão.
+// pdf-parse v1.x exporta default, v2.x exporta named { pdf }.
+// Resolvemos os formatos possíveis para o import funcionar em qualquer versão.
 import * as PdfParseLib from 'pdf-parse';
-const pdfParse = PdfParseLib.pdf || PdfParseLib.default || PdfParseLib;
+
+function resolvePdfParse(mod) {
+  if (typeof mod === 'function') return mod;
+  if (typeof mod?.pdf === 'function') return mod.pdf;
+  if (typeof mod?.default === 'function') return mod.default;
+  if (typeof mod?.default?.pdf === 'function') return mod.default.pdf;
+  if (typeof mod?.default?.default === 'function') return mod.default.default;
+  return null;
+}
+const pdfParse = resolvePdfParse(PdfParseLib);
+if (!pdfParse) {
+  console.error(
+    '[fit-parser] pdfParse não resolvido. Keys disponíveis:',
+    Object.keys(PdfParseLib || {}),
+    'Tipo default:', typeof PdfParseLib?.default,
+  );
+}
 
 const MESES_PT = {
   JANEIRO: 1, JAN: 1,
@@ -155,16 +171,36 @@ function extrairBeneficiarios(text) {
 
 /** Parser principal */
 export async function parseFitPDF(buffer) {
+  if (!pdfParse) {
+    throw new Error(
+      'Biblioteca pdf-parse indisponível ou incompatível. ' +
+      'Verifique a versão instalada (esperada: pdf-parse v1 ou v2).',
+    );
+  }
+  if (!buffer || !buffer.length) {
+    throw new Error('Buffer do PDF vazio.');
+  }
   let data;
   try {
     data = await pdfParse(buffer);
   } catch (e) {
     throw new Error(`pdf-parse falhou: ${e.message}`);
   }
-  // v2.x retorna { text, numpages } igual a v1 — mas garantimos fallback
-  const text = String(data?.text ?? data?.pages?.map?.((p) => p.text).join('\n') ?? '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  // v1.x retorna { text, numpages }; v2.x pode retornar { text } ou { pages:[{text}] }
+  let text = '';
+  if (typeof data === 'string') {
+    text = data;
+  } else if (data?.text) {
+    text = data.text;
+  } else if (Array.isArray(data?.pages)) {
+    text = data.pages.map((p) => p?.text || '').join('\n');
+  } else if (data?.content) {
+    text = data.content;
+  }
+  text = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!text) {
+    throw new Error('PDF lido mas nenhum texto foi extraído. Pode ser um PDF apenas com imagem (escaneado) — neste caso preencha os campos manualmente.');
+  }
 
   const { mes, ano } = extrairPeriodo(text);
   const geracao = extrairGeracao(text);
@@ -189,6 +225,6 @@ export async function parseFitPDF(buffer) {
     beneficiarios,
     trechoGeracao: trecho?.trim() || null,
     rawText: text.slice(0, 8000),
-    paginas: data?.numpages || 1,
+    paginas: data?.numpages || data?.pageCount || data?.pages?.length || 1,
   };
 }

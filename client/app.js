@@ -1888,15 +1888,18 @@ async function processarFitPDF(file) {
   }
   const fd = new FormData();
   fd.append('file', file);
+  // Manda usina+ano+mês — backend já enriquece com valor do Financeiro
+  fd.append('usinaId', usinaId);
+  fd.append('ano', String(anoForm));
+  fd.append('mes', String(mesForm));
   try {
     const r = await api.upload('/fit/upload/preview', fd);
-    // Overrides do form têm prioridade sobre o que foi extraído do PDF
     _fitPreview = {
       ...r,
       usinaId,
       skidId,
-      ano: anoForm,         // override
-      mes: mesForm,         // override
+      ano: anoForm,
+      mes: mesForm,
       periodo: `${anoForm}-${String(mesForm).padStart(2, '0')}`,
     };
     renderFitPreview(_fitPreview);
@@ -1931,10 +1934,12 @@ function renderFitPreview(r) {
     </div></div>
     ${trechoBox}
 
+    <div class="alert alert-i" style="margin-top:10px"><i class="fas fa-lightbulb"></i><div style="font-size:12px"><strong>Origem dos dados:</strong> a <strong>Geração</strong> vem do PDF (editável). O <strong>Valor</strong> e a <strong>Tarifa</strong> vêm do módulo <strong>Financeiro</strong> (lançamentos da categoria <code>Fit</code> no mesmo período). ${typeof r.lancamentosFin === 'number' ? `<br>📊 <strong>${r.lancamentosFin}</strong> lançamento(s) de Fit somando <strong>${fmtBRL(r.valorFinanceiro || 0)}</strong> encontrados.` : ''}</div></div>
+
     <div class="fg" style="margin-top:14px">
-      <div class="fgrp"><label class="flabel">Geração deste mês (kWh) <span class="req">*</span></label><input class="finput" type="number" step="0.01" id="fitGer" value="${r.geracaoKwh || 0}" style="font-weight:700;color:var(--p)"></div>
-      <div class="fgrp"><label class="flabel">Valor faturado (R$) <span class="req">*</span></label><input class="finput" type="number" step="0.01" id="fitVal" value="${r.valorFaturado || 0}"></div>
-      <div class="fgrp"><label class="flabel">Tarifa (R$/kWh)</label><input class="finput" type="number" step="0.0001" id="fitTar" value="${r.tarifa || 0}" placeholder="auto: valor / geração"></div>
+      <div class="fgrp"><label class="flabel">Geração deste mês (kWh) <span class="req">*</span><small style="font-weight:400;color:var(--t3)"> · do PDF</small></label><input class="finput" type="number" step="0.01" id="fitGer" value="${r.geracaoKwh || 0}" style="font-weight:700;color:var(--p)"></div>
+      <div class="fgrp"><label class="flabel">Valor faturado (R$)<small style="font-weight:400;color:var(--t3)"> · do Financeiro</small></label><input class="finput" type="number" step="0.01" id="fitVal" value="${r.valorFaturado || 0}" readonly style="background:#F1F5F9;color:var(--ok);font-weight:600"></div>
+      <div class="fgrp"><label class="flabel">Tarifa (R$/kWh)<small style="font-weight:400;color:var(--t3)"> · auto</small></label><input class="finput" type="number" step="0.0001" id="fitTar" value="${r.tarifa || 0}" readonly style="background:#F1F5F9"></div>
       <div class="fgrp"><label class="flabel">Distribuidora</label><input class="finput" id="fitDist" value="${r.distribuidora || ''}" placeholder="Ex: EDP, Energisa"></div>
       <div class="fgrp"><label class="flabel">Beneficiários (UCs)</label><input class="finput" type="number" id="fitBen" value="${r.beneficiarios || ''}"></div>
       <div class="fgrp"><label class="flabel">Arquivo</label><input class="finput" id="fitArq" value="${r.arquivoNome || ''}" readonly></div>
@@ -1953,13 +1958,12 @@ function renderFitPreview(r) {
     ${r.rawText ? `<details style="margin-top:14px;font-size:11px;color:var(--t3)"><summary style="cursor:pointer">Ver texto bruto extraído do PDF</summary><pre style="background:var(--bg);padding:9px;border-radius:6px;max-height:200px;overflow:auto;font-size:10px;white-space:pre-wrap">${r.rawText.slice(0, 2000)}${r.rawText.length > 2000 ? '\n...(truncado)' : ''}</pre></details>` : ''}
   `;
 
-  // Auto-recalcula tarifa quando muda geração ou valor
-  const recalc = () => {
+  // Auto-recalcula tarifa quando geração muda (valor é fixo do Financeiro)
+  $('fitGer')?.addEventListener('input', () => {
     const g = parseFloat($('fitGer').value) || 0;
     const v = parseFloat($('fitVal').value) || 0;
     if (g > 0) $('fitTar').value = (v / g).toFixed(4);
-  };
-  ['fitGer', 'fitVal'].forEach((id) => $(id)?.addEventListener('input', recalc));
+  });
 }
 
 async function confirmarFit() {
@@ -2104,6 +2108,7 @@ async function processarFitXls(file) {
   }
   const fd = new FormData();
   fd.append('file', file);
+  fd.append('usinaId', usinaId); // <- backend já busca valor do Financeiro
   const anoFallback = $('fitXlsAno').value;
   if (anoFallback) fd.append('anoFallback', anoFallback);
 
@@ -2131,20 +2136,33 @@ function renderFitXlsPreview(r) {
   const skidNome = r.skidId ? (state.usinas.find((u) => u.id === r.usinaId)?.skids?.find((s) => s.id === r.skidId)?.nome || '?') : null;
 
   // Constrói tabela de preview com inputs editáveis
-  const linhas = r.items.map((it, idx) => `
-    <tr data-fxrow="${idx}">
+  // Geração vem do Excel (editável); Valor vem do Financeiro (read-only com indicação visual)
+  const linhas = r.items.map((it, idx) => {
+    const semValor = !it.valorFaturado;
+    return `
+    <tr data-fxrow="${idx}" ${semValor ? 'style="background:#FFF7ED"' : ''}>
       <td style="font-size:11px;color:var(--t3);text-align:center;width:40px">${it.linha || idx + 1}</td>
       <td><input class="finput" id="fxPer_${idx}" type="month" value="${it.periodo}" style="padding:4px 6px;font-size:12px"></td>
-      <td><input class="finput" id="fxGer_${idx}" type="number" step="0.01" value="${it.geracaoKwh}" style="padding:4px 6px;font-size:12px"></td>
-      <td><input class="finput" id="fxVal_${idx}" type="number" step="0.01" value="${it.valorFaturado}" style="padding:4px 6px;font-size:12px"></td>
-      <td><input class="finput" id="fxTar_${idx}" type="number" step="0.0001" value="${it.tarifa || 0}" style="padding:4px 6px;font-size:12px"></td>
+      <td><input class="finput" id="fxGer_${idx}" type="number" step="0.01" value="${it.geracaoKwh}" style="padding:4px 6px;font-size:12px;font-weight:700;color:var(--p)"></td>
+      <td title="${semValor ? 'Nenhum lançamento da categoria Fit no período' : `${it.lancamentosFin || 0} lançamento(s) da categoria Fit`}">
+        <input class="finput" id="fxVal_${idx}" type="number" step="0.01" value="${it.valorFaturado || 0}" readonly style="padding:4px 6px;font-size:12px;background:#F1F5F9;color:${semValor ? 'var(--wn)' : 'var(--ok)'};font-weight:600">
+        ${semValor ? '<small style="color:var(--wn);font-size:9px;display:block">⚠️ sem Fit</small>' : `<small style="color:var(--t3);font-size:9px;display:block">${it.lancamentosFin}× Fin</small>`}
+      </td>
+      <td><input class="finput" id="fxTar_${idx}" type="number" step="0.0001" value="${it.tarifa || 0}" readonly style="padding:4px 6px;font-size:12px;background:#F1F5F9"></td>
       <td><input class="finput" id="fxDist_${idx}" value="${it.distribuidora || ''}" style="padding:4px 6px;font-size:12px" placeholder="—"></td>
       <td><input class="finput" id="fxBen_${idx}" type="number" value="${it.beneficiarios || ''}" style="padding:4px 6px;font-size:12px" placeholder="—"></td>
       <td style="text-align:center"><button class="bico er" data-fxdel="${idx}" title="Remover linha"><i class="fas fa-trash"></i></button></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   const ignoradas = r.linhasIgnoradas?.length
     ? `<div class="alert alert-wn" style="margin-top:13px"><i class="fas fa-exclamation-triangle"></i><div><strong>${r.linhasIgnoradas.length} linha(s) ignorada(s):</strong><br>${r.linhasIgnoradas.slice(0, 5).map((e) => `Linha ${e.linha}: ${e.motivo}`).join('<br>')}${r.linhasIgnoradas.length > 5 ? '<br>...' : ''}</div></div>`
+    : '';
+
+  // Resumo das origens
+  const semFit = r.items.filter((it) => !it.valorFaturado).length;
+  const avisoFin = semFit > 0
+    ? `<div class="alert alert-wn" style="margin-top:10px"><i class="fas fa-exclamation-triangle"></i><div><strong>${semFit} mês(es) sem valor da categoria Fit</strong> no Financeiro. Para esses meses, cadastre primeiro um lançamento financeiro com categoria <code>Fit</code> e tipo Receita.</div></div>`
     : '';
 
   $('fitXlsStep2').innerHTML = `
@@ -2154,13 +2172,17 @@ function renderFitXlsPreview(r) {
       <br>📁 ${r.arquivoNome}
     </div></div>
 
+    <div class="alert alert-i" style="margin-bottom:10px"><i class="fas fa-lightbulb"></i><div style="font-size:12px"><strong>Como funciona:</strong> a <strong>geração</strong> vem da planilha (editável). O <strong>valor faturado</strong> é puxado automaticamente do módulo <strong>Financeiro</strong> — soma dos lançamentos com categoria <code>Fit</code> da mesma usina no mesmo mês.</div></div>
+
     <div class="fin-kpi" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
       <div class="fin-card"><div class="fin-lbl">Linhas</div><div class="fin-val">${r.resumo.totalItens}</div><div class="fin-sub">${r.resumo.ignoradas} ignorada(s)</div></div>
-      <div class="fin-card"><div class="fin-lbl">∑ Geração</div><div class="fin-val" style="color:var(--p);font-size:18px">${fmtNum(r.resumo.somaGeracao, 0)}</div><div class="fin-sub">kWh</div></div>
-      <div class="fin-card"><div class="fin-lbl">∑ Faturado</div><div class="fin-val" style="color:var(--ok);font-size:18px">${fmtBRL(r.resumo.somaValor)}</div></div>
+      <div class="fin-card"><div class="fin-lbl">∑ Geração (planilha)</div><div class="fin-val" style="color:var(--p);font-size:18px">${fmtNum(r.items.reduce((s,x)=>s+(parseFloat(x.geracaoKwh)||0),0), 0)}</div><div class="fin-sub">kWh</div></div>
+      <div class="fin-card"><div class="fin-lbl">∑ Faturado (Financeiro)</div><div class="fin-val" style="color:var(--ok);font-size:18px">${fmtBRL(r.items.reduce((s,x)=>s+(parseFloat(x.valorFaturado)||0),0))}</div><div class="fin-sub">Categoria Fit</div></div>
     </div>
 
-    <div style="font-size:12px;color:var(--t2);margin-bottom:6px"><i class="fas fa-edit"></i> Edite qualquer célula antes de confirmar. Use 🗑️ para remover linhas que não devem entrar.</div>
+    ${avisoFin}
+
+    <div style="font-size:12px;color:var(--t2);margin-bottom:6px"><i class="fas fa-edit"></i> Edite a <strong>Geração</strong> se precisar (azul). <strong>Valor</strong> e <strong>Tarifa</strong> vêm do Financeiro (cinza, somente leitura). Use 🗑️ para remover linhas.</div>
 
     <div class="tcard" style="margin:0;overflow-x:auto">
       <table style="min-width:780px">
@@ -2168,9 +2190,9 @@ function renderFitXlsPreview(r) {
           <tr>
             <th style="text-align:center;width:40px">#</th>
             <th>Período</th>
-            <th>Geração (kWh)</th>
-            <th>Valor (R$)</th>
-            <th>Tarifa (R$/kWh)</th>
+            <th>Geração (kWh)<br><small style="font-weight:400;color:var(--t3)">do Excel</small></th>
+            <th>Valor (R$)<br><small style="font-weight:400;color:var(--t3)">do Financeiro</small></th>
+            <th>Tarifa<br><small style="font-weight:400;color:var(--t3)">auto</small></th>
             <th>Distribuidora</th>
             <th>UCs</th>
             <th></th>
@@ -2193,9 +2215,10 @@ function renderFitXlsPreview(r) {
   $('fxTbody').addEventListener('input', (e) => {
     const idStr = e.target.id;
     if (!idStr) return;
-    const m = idStr.match(/^(fxGer|fxVal)_(\d+)$/);
+    // Só geração é editável; valor vem do Financeiro. Recalcula tarifa.
+    const m = idStr.match(/^fxGer_(\d+)$/);
     if (!m) return;
-    const idx = m[2];
+    const idx = m[1];
     const g = parseFloat($(`fxGer_${idx}`)?.value) || 0;
     const v = parseFloat($(`fxVal_${idx}`)?.value) || 0;
     if (g > 0 && $(`fxTar_${idx}`)) $(`fxTar_${idx}`).value = (v / g).toFixed(4);

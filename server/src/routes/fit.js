@@ -10,6 +10,7 @@ import {
 import { uploadFitPDF, uploadFitExcel, UPLOAD_ROOT } from '../lib/upload.js';
 import { parseFitPDF } from '../lib/fit-parser.js';
 import { parseFitExcel } from '../lib/fit-excel-parser.js';
+import { buscarValorFitFinanceiro } from '../lib/fit-valor.js';
 import { emit } from '../realtime.js';
 import { aplicarFiltroUsinas, exigirAcessoUsina } from '../lib/access.js';
 import { notificarAdmins, fmtUsuario, fmtDataHora } from '../lib/notificar.js';
@@ -84,6 +85,7 @@ router.get(
 
 // ---------- POST /api/fit/upload/preview ----------
 // Recebe PDF, extrai dados e devolve sem salvar. Frontend usa para preview editável.
+// Se vier usinaId+ano+mes no form, já enriquece com valor do Financeiro (categoria Fit).
 router.post(
   '/upload/preview',
   requireAdminOrTecnico,
@@ -96,6 +98,21 @@ router.post(
     } catch (e) {
       throw httpErrors.badRequest(`Falha ao ler PDF: ${e.message}`);
     }
+
+    // Enriquece com valor do Financeiro (Fit) se vierem usinaId+ano+mês no form
+    const usinaId = req.body.usinaId || null;
+    const ano = req.body.ano ? parseInt(req.body.ano) : parsed.ano;
+    const mes = req.body.mes ? parseInt(req.body.mes) : parsed.mes;
+    if (usinaId && ano && mes) {
+      const periodo = `${ano}-${String(mes).padStart(2, '0')}`;
+      const { total, lancamentos } = await buscarValorFitFinanceiro(usinaId, periodo);
+      parsed.valorFinanceiro = total;
+      parsed.lancamentosFin = lancamentos;
+      // Sobrescreve o valor extraído pelo do Financeiro (origem oficial)
+      parsed.valorFaturado = total;
+      parsed.tarifa = parsed.geracaoKwh > 0 ? +(total / parsed.geracaoKwh).toFixed(4) : 0;
+    }
+
     res.json({
       ok: true,
       arquivoNome: req.file.originalname,
@@ -123,6 +140,12 @@ router.post(
       if (!skid || skid.usinaId !== data.usinaId) {
         throw httpErrors.badRequest('SKID inválido para esta usina');
       }
+    }
+
+    // Se valorFaturado não veio (ou 0), busca da categoria Fit do Financeiro
+    if (!data.valorFaturado || data.valorFaturado === 0) {
+      const { total } = await buscarValorFitFinanceiro(data.usinaId, data.periodo);
+      if (total > 0) data.valorFaturado = total;
     }
 
     // tarifa auto se vier 0 e tiver geração + valor
@@ -198,6 +221,8 @@ router.delete(
 
 // ---------- POST /api/fit/excel/preview ----------
 // Recebe XLSX, parseia e devolve preview sem persistir.
+// Se a `usinaId` vier no form, já busca o valor da categoria "Fit" do Financeiro
+// para cada mês — assim o preview mostra o valor real que entrará no Salvar.
 router.post(
   '/excel/preview',
   requireAdminOrTecnico,
@@ -205,12 +230,27 @@ router.post(
   asyncRoute(async (req, res) => {
     if (!req.file) throw httpErrors.badRequest('Arquivo Excel ausente');
     const anoFallback = req.body.anoFallback ? parseInt(req.body.anoFallback) : null;
+    const usinaId = req.body.usinaId || null;
+
     let parsed;
     try {
       parsed = parseFitExcel(req.file.buffer, { anoFallback });
     } catch (e) {
       throw httpErrors.badRequest(`Falha ao ler Excel: ${e.message}`);
     }
+
+    // Enriquece cada item com valor da categoria "Fit" do Financeiro
+    if (usinaId) {
+      for (const it of parsed.items) {
+        const { total, lancamentos } = await buscarValorFitFinanceiro(usinaId, it.periodo);
+        it.valorFinanceiro = total;
+        it.lancamentosFin = lancamentos;
+        // Sobrescreve o valor lido do Excel pelo do Financeiro (origem oficial)
+        it.valorFaturado = total;
+        it.tarifa = it.geracaoKwh > 0 ? +(total / it.geracaoKwh).toFixed(4) : 0;
+      }
+    }
+
     res.json({
       ok: true,
       arquivoNome: req.file.originalname,
@@ -220,6 +260,7 @@ router.post(
       resumo: parsed.resumo,
       linhasIgnoradas: parsed.linhasIgnoradas,
       items: parsed.items,
+      valorEnriquecido: !!usinaId,
     });
   }),
 );
@@ -258,7 +299,16 @@ router.post(
           continue;
         }
         const geracaoKwh = parseFloat(it.geracaoKwh) || 0;
-        const valorFaturado = parseFloat(it.valorFaturado) || 0;
+
+        // Valor SEMPRE vem do Financeiro (categoria Fit, mesmo período e usina).
+        // Se o frontend mandou um override, usa; senão busca no banco.
+        let valorFaturado;
+        if (it.valorFaturado != null && it.valorFaturado !== '' && !isNaN(parseFloat(it.valorFaturado))) {
+          valorFaturado = parseFloat(it.valorFaturado);
+        } else {
+          const { total } = await buscarValorFitFinanceiro(usinaId, it.periodo);
+          valorFaturado = total;
+        }
         const tarifa = parseFloat(it.tarifa) || (geracaoKwh > 0 ? +(valorFaturado / geracaoKwh).toFixed(4) : 0);
 
         const existente = await prisma.fitEnergia.findFirst({
