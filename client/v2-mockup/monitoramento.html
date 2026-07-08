@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OASIS SOLAR — v2.0 Mockup: Monitoramento</title>
+<script>(function(){try{if(localStorage.getItem('oasis-theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="theme.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--t1);min-height:100vh;}
+
+.proto-banner{background:#1a1a1a;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:7px;letter-spacing:.3px;}
+.proto-banner b{color:#FFD166;}
+
+/* ---- Topbar ---- */
+.topbar{background:var(--card);border-bottom:1px solid var(--bd);padding:0 28px;height:62px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--s1);position:sticky;top:0;z-index:50;}
+.tb-left{display:flex;align-items:center;gap:14px;}
+.tb-back{width:34px;height:34px;border-radius:var(--r1);border:1px solid var(--bd);background:transparent;color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s;text-decoration:none;}
+.tb-back:hover{background:var(--pxl);color:var(--p);border-color:var(--p);}
+.tb-mod{display:flex;align-items:center;gap:9px;}
+.tb-mod .icon{width:32px;height:32px;border-radius:8px;background:var(--acl);color:#0090AD;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.tb-mod .name{font-family:'Inter',sans-serif;font-size:15px;font-weight:700;}
+.tb-live{display:flex;align-items:center;gap:6px;padding:5px 11px;background:var(--okl);border-radius:20px;font-size:11px;font-weight:600;color:var(--ok);}
+.tb-live .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.content{max-width:1240px;margin:0 auto;padding:22px 28px 60px;}
+
+/* ---- Tabbar ---- */
+.tabbar{display:flex;gap:3px;background:var(--card);border-radius:var(--r2);padding:4px;width:fit-content;border:1px solid var(--bd);margin-bottom:18px;box-shadow:var(--s1);}
+.tabbtn{padding:8px 17px;border-radius:var(--r1);font-size:12.5px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--t2);transition:all .2s;font-family:inherit;display:flex;align-items:center;gap:7px;}
+.tabbtn.active{background:var(--p);color:#fff;}
+.tabview{display:none;}
+.tabview.active{display:block;}
+
+/* ---- KPI strip ---- */
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:18px;}
+.kpi{background:var(--card);border:1px solid var(--bd);border-radius:var(--r3);padding:16px;box-shadow:var(--s1);}
+.kpi-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.kpi-ic{width:34px;height:34px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:14px;}
+.kval{font-size:21px;font-weight:800;font-family:'Inter',sans-serif;}
+.kunit{font-size:11px;font-weight:500;color:var(--t3);margin-left:3px;}
+.klbl{font-size:11.5px;color:var(--t3);margin-top:4px;font-weight:500;}
+
+/* ---- Mapa de Potência: grid de cards ---- */
+.fbar{background:var(--card);border:1px solid var(--bd);border-radius:var(--r2);padding:11px 16px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:16px;box-shadow:var(--s1);}
+.flbl{font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;}
+select.fsel{padding:6px 10px;border:1px solid var(--bd);border-radius:var(--r1);font-family:inherit;font-size:12.5px;color:var(--t1);background:var(--bg);cursor:pointer;outline:none;}
+
+.plant-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px;}
+.plant-card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r3);padding:17px;box-shadow:var(--s1);transition:all .2s;}
+.plant-card:hover{box-shadow:var(--s2);transform:translateY(-2px);}
+.plant-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+.plant-name{font-size:14px;font-weight:700;}
+.plant-loc{font-size:10.5px;color:var(--t3);margin-top:2px;}
+.plant-status{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:3px 8px;border-radius:20px;}
+.plant-status.op{background:var(--okl);color:var(--ok);}
+.plant-status.al{background:var(--wnl);color:#B45309;}
+.plant-status.off{background:var(--erl);color:var(--er);}
+
+.gauge-row{display:flex;align-items:center;gap:16px;}
+.gauge{width:78px;height:78px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;}
+.gauge-inner{width:60px;height:60px;border-radius:50%;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.gauge-inner b{font-size:13px;font-family:'Inter',sans-serif;}
+.gauge-inner span{font-size:8px;color:var(--t3);}
+.plant-meta{flex:1;display:flex;flex-direction:column;gap:5px;}
+.plant-meta .row{display:flex;justify-content:space-between;font-size:11.5px;}
+.plant-meta .row .k{color:var(--t3);}
+.plant-meta .row .v{font-weight:700;}
+.inv-line{margin-top:12px;padding-top:12px;border-top:1px solid var(--bdl);display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--t2);}
+.inv-line .invchips{display:flex;gap:3px;}
+.inv-dot{width:7px;height:7px;border-radius:50%;}
+.inv-dot.on{background:var(--ok);}
+.inv-dot.off{background:var(--er);}
+.plant-card{cursor:pointer;}
+
+/* ---- Detalhe da usina: grid de inversores ---- */
+#viewPlantList.hidden,#viewPlantDetail.hidden{display:none;}
+.plant-detail-back{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--p);cursor:pointer;margin-bottom:14px;}
+.plant-detail-back:hover{text-decoration:underline;}
+.plant-detail-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+.plant-detail-title{font-size:19px;font-weight:800;}
+.plant-detail-sub{font-size:12px;color:var(--t3);margin-top:2px;}
+
+.inv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:13px;}
+.inv-card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r3);padding:15px;box-shadow:var(--s1);}
+.inv-card.fault{border-color:var(--er);}
+.inv-card.standby{border-color:var(--wn);}
+.inv-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.inv-name{font-size:12.5px;font-weight:700;}
+.inv-id{font-size:9.5px;color:var(--t3);margin-top:1px;}
+.inv-status-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:3px 8px;border-radius:20px;white-space:nowrap;}
+.inv-status-badge.normal{background:var(--okl);color:var(--ok);}
+.inv-status-badge.standby{background:var(--wnl);color:#B45309;}
+.inv-status-badge.fault{background:var(--erl);color:var(--er);}
+.inv-status-badge.offline{background:var(--bg);color:var(--t3);border:1px solid var(--bd);}
+.inv-power{font-size:20px;font-weight:800;font-family:'Inter',sans-serif;margin-bottom:2px;}
+.inv-power span{font-size:11px;font-weight:500;color:var(--t3);margin-left:2px;}
+.inv-metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--bdl);}
+.inv-metrics .m{font-size:10.5px;}
+.inv-metrics .m .k{color:var(--t3);display:block;}
+.inv-metrics .m .v{font-weight:700;color:var(--t1);}
+
+/* ---- Alarmes ---- */
+.tcard{background:var(--card);border:1px solid var(--bd);border-radius:var(--r3);box-shadow:var(--s1);overflow:hidden;}
+table{width:100%;border-collapse:collapse;}
+thead th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--t3);background:var(--bg);border-bottom:1px solid var(--bd);}
+tbody tr:not(:last-child){border-bottom:1px solid var(--bdl);}
+tbody tr:hover{background:var(--pxl);}
+td{padding:11px 14px;font-size:12.5px;}
+.sev{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;}
+.sev.critico{background:var(--erl);color:var(--er);}
+.sev.atencao{background:var(--wnl);color:#B45309;}
+.sev.info{background:var(--pxl);color:var(--p);}
+.st-pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;}
+.st-pill.ativo{background:var(--erl);color:var(--er);}
+.st-pill.resolvido{background:var(--okl);color:var(--ok);}
+
+/* ---- Análises ---- */
+.an-grid{display:grid;grid-template-columns:2.2fr 1fr;gap:14px;}
+.ch-card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r3);padding:17px;box-shadow:var(--s1);}
+.ch-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;}
+.ch-title{font-size:13.5px;font-weight:700;}
+.ch-sub{font-size:11px;color:var(--t3);margin-top:1px;}
+.side-kpis{display:flex;flex-direction:column;gap:12px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-left">
+    <a href="hub.html" class="tb-back"><i class="fas fa-arrow-left"></i></a>
+    <div class="tb-mod">
+      <div class="icon"><i class="fas fa-satellite-dish"></i></div>
+      <div class="name">Monitoramento</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div class="tb-live"><span class="dot"></span> 5 de 6 usinas conectadas</div>
+    <button class="theme-toggle" id="themeToggle" title="Alternar tema"><i class="fas fa-sun"></i></button>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="tabbar">
+    <button class="tabbtn active" data-tab="mapa"><i class="fas fa-bolt"></i> Mapa de Potência</button>
+    <button class="tabbtn" data-tab="alarmes"><i class="fas fa-triangle-exclamation"></i> Alarmes</button>
+    <button class="tabbtn" data-tab="analises"><i class="fas fa-chart-area"></i> Análises</button>
+  </div>
+
+  <!-- ===================== KPIs (fixos, topo) ===================== -->
+  <div class="kpi-strip">
+    <div class="kpi">
+      <div class="kpi-h"><div class="kpi-ic" style="background:var(--pxl);color:var(--p)"><i class="fas fa-bolt"></i></div></div>
+      <div><span class="kval" id="kpiPotAtual">—</span><span class="kunit">kW</span></div>
+      <div class="klbl">Potência instantânea total</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-h"><div class="kpi-ic" style="background:var(--okl);color:var(--ok)"><i class="fas fa-sun"></i></div></div>
+      <div><span class="kval" id="kpiEnergiaHoje">—</span><span class="kunit">MWh</span></div>
+      <div class="klbl">Energia gerada hoje</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-h"><div class="kpi-ic" style="background:var(--wnl);color:#B45309"><i class="fas fa-triangle-exclamation"></i></div></div>
+      <div><span class="kval" id="kpiAlarmesAtivos">—</span><span class="kunit">ativos</span></div>
+      <div class="klbl">Alarmes em aberto</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-h"><div class="kpi-ic" style="background:var(--acl);color:#0090AD"><i class="fas fa-plug-circle-check"></i></div></div>
+      <div><span class="kval" id="kpiDisponibilidade">—</span><span class="kunit">%</span></div>
+      <div class="klbl">Disponibilidade da frota</div>
+    </div>
+  </div>
+
+  <!-- ===================== TAB: MAPA DE POTÊNCIA ===================== -->
+  <div class="tabview active" id="tabMapa">
+
+    <div id="viewPlantList">
+      <div class="fbar">
+        <span class="flbl">Filtros</span>
+        <select class="fsel" id="fMapaStatus">
+          <option value="">Todos os status</option>
+          <option value="op">Operando</option>
+          <option value="al">Com alerta</option>
+          <option value="off">Offline</option>
+        </select>
+      </div>
+      <div class="plant-grid" id="plantGrid"></div>
+    </div>
+
+    <div id="viewPlantDetail" class="hidden">
+      <div class="plant-detail-back" id="btnBackPlant"><i class="fas fa-arrow-left"></i> Voltar ao Mapa de Potência</div>
+      <div class="plant-detail-head">
+        <div>
+          <div class="plant-detail-title" id="pdTitle">—</div>
+          <div class="plant-detail-sub" id="pdSub">—</div>
+        </div>
+        <div class="tb-live"><span class="dot"></span> <span id="pdOnline">—</span> inversores online</div>
+      </div>
+      <div class="inv-grid" id="invGrid"></div>
+    </div>
+
+  </div>
+
+  <!-- ===================== TAB: ALARMES ===================== -->
+  <div class="tabview" id="tabAlarmes">
+    <div class="fbar">
+      <span class="flbl">Filtros</span>
+      <select class="fsel" id="fAlUsina"></select>
+      <select class="fsel" id="fAlSev">
+        <option value="">Todas as severidades</option>
+        <option value="critico">Crítico</option>
+        <option value="atencao">Atenção</option>
+        <option value="info">Informativo</option>
+      </select>
+      <select class="fsel" id="fAlStatus">
+        <option value="">Todos os status</option>
+        <option value="ativo">Ativo</option>
+        <option value="resolvido">Resolvido</option>
+      </select>
+    </div>
+    <div class="tcard">
+      <table>
+        <thead><tr><th>Severidade</th><th>Usina</th><th>Ativo</th><th>Descrição</th><th>Abertura</th><th>Status</th></tr></thead>
+        <tbody id="alarmesBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===================== TAB: ANÁLISES ===================== -->
+  <div class="tabview" id="tabAnalises">
+    <div class="fbar">
+      <span class="flbl">Usina</span>
+      <select class="fsel" id="fAnUsina"></select>
+      <span class="flbl">Período</span>
+      <select class="fsel" id="fAnPeriodo">
+        <option value="hoje">Hoje</option>
+        <option value="7d">Últimos 7 dias</option>
+        <option value="30d">Últimos 30 dias</option>
+      </select>
+    </div>
+    <div class="an-grid">
+      <div class="ch-card">
+        <div class="ch-head">
+          <div><div class="ch-title">Curva de potência</div><div class="ch-sub" id="anSub">—</div></div>
+        </div>
+        <canvas id="curvaChart" height="110"></canvas>
+      </div>
+      <div class="side-kpis">
+        <div class="kpi">
+          <div class="kpi-h"><div class="kpi-ic" style="background:var(--pxl);color:var(--p)"><i class="fas fa-gauge-high"></i></div></div>
+          <div><span class="kval" id="anPico">—</span><span class="kunit">kW</span></div>
+          <div class="klbl">Pico de potência no período</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-h"><div class="kpi-ic" style="background:var(--okl);color:var(--ok)"><i class="fas fa-battery-full"></i></div></div>
+          <div><span class="kval" id="anEnergia">—</span><span class="kunit">MWh</span></div>
+          <div class="klbl">Energia total no período</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-h"><div class="kpi-ic" style="background:var(--acl);color:#0090AD"><i class="fas fa-percent"></i></div></div>
+          <div><span class="kval" id="anPR">—</span><span class="kunit">%</span></div>
+          <div class="klbl">Performance Ratio médio</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+/* ===================== dados reais (server/prisma/seed-real.js + seed-geracao.js) ===================== */
+const USINAS = [
+  { nome:'UFV Central',           kwp:6800,   potAtual:5362, status:'op',  invOn:14, invTotal:14 },
+  { nome:'UFV Partinga-BA',       kwp:8500,   potAtual:5801, status:'op',  invOn:17, invTotal:17 },
+  { nome:'UFV Sítio do Pescoço',  kwp:4000,   potAtual:3109, status:'op',  invOn:8,  invTotal:8  },
+  { nome:'UFV Pedro Canario I',   kwp:3500,   potAtual:2624, status:'op',  invOn:7,  invTotal:7  },
+  { nome:'UFV Pedro Canario II',  kwp:3000,   potAtual:1350, status:'al',  invOn:5,  invTotal:6  },
+  { nome:'UFV Bom Futuro',        kwp:108.16, potAtual:60,   status:'op',  invOn:1,  invTotal:1  },
+  { nome:'UFV Cerado Pedra I',    kwp:108,    potAtual:98,   status:'op',  invOn:1,  invTotal:1  },
+  { nome:'UFV Cercado Pedra II',  kwp:105.45, potAtual:74,   status:'op',  invOn:1,  invTotal:1  },
+  { nome:'UFV Cercado Pedra III', kwp:108.48, potAtual:97,   status:'op',  invOn:1,  invTotal:1  },
+  { nome:'UFV Efizi',             kwp:102.83, potAtual:84,   status:'op',  invOn:1,  invTotal:1  },
+  { nome:'UFV Nacional I',        kwp:96,     potAtual:69,   status:'op',  invOn:1,  invTotal:1  },
+  { nome:'UFV Nacional II',       kwp:96,     potAtual:0,    status:'off', invOn:0,  invTotal:1  },
+];
+
+const ALARMES = [
+  { usina:'UFV Pedro Canario II',  ativo:'Inversor 03', sev:'critico', desc:'PR em 50% no mês — queda de performance abaixo do esperado.', abertura:'2026-07-08 06:12', status:'ativo' },
+  { usina:'UFV Nacional II',       ativo:'String Box 01', sev:'critico', desc:'Usina offline — sem geração desde 05:40.', abertura:'2026-07-08 05:40', status:'ativo' },
+  { usina:'UFV Cerado Pedra I',    ativo:'Inversor 01', sev:'atencao', desc:'PR acima de 100% — possível erro de calibração do medidor.', abertura:'2026-07-08 09:05', status:'ativo' },
+  { usina:'UFV Central',           ativo:'Inversor 07', sev:'atencao', desc:'Temperatura acima do limite recomendado (58°C).', abertura:'2026-07-07 14:20', status:'ativo' },
+  { usina:'UFV Partinga-BA',       ativo:'Estação Solarimétrica', sev:'info', desc:'Sensor de irradiância recalibrado automaticamente.', abertura:'2026-07-07 08:00', status:'resolvido' },
+  { usina:'UFV Efizi',             ativo:'Inversor 01', sev:'info', desc:'Manutenção preventiva concluída sem pendências.', abertura:'2026-07-06 07:15', status:'resolvido' },
+  { usina:'UFV Sítio do Pescoço',  ativo:'Transformador MV', sev:'info', desc:'Inspeção termográfica concluída sem pontos quentes.', abertura:'2026-07-05 11:30', status:'resolvido' },
+];
+
+const STATUS_LABEL = { op:'Operando', al:'Com alerta', off:'Offline' };
+
+/* ===================== KPIs topo ===================== */
+function renderKpisTopo(){
+  const potTotal = USINAS.reduce((s,u) => s + u.potAtual, 0);
+  const alarmesAtivos = ALARMES.filter(a => a.status === 'ativo').length;
+  const invOnTotal = USINAS.reduce((s,u) => s + u.invOn, 0);
+  const invTotal = USINAS.reduce((s,u) => s + u.invTotal, 0);
+  $('kpiPotAtual').textContent = potTotal.toLocaleString('pt-BR');
+  $('kpiEnergiaHoje').textContent = (potTotal * 4.2 / 1000).toFixed(1).replace('.', ',');
+  $('kpiAlarmesAtivos').textContent = alarmesAtivos;
+  $('kpiDisponibilidade').textContent = ((invOnTotal/invTotal)*100).toFixed(1).replace('.', ',');
+}
+
+/* ===================== Mapa de Potência ===================== */
+function gaugeGradient(pct, color){
+  return `conic-gradient(${color} ${pct*3.6}deg, var(--bdl) ${pct*3.6}deg)`;
+}
+function renderPlantGrid(){
+  const filtro = $('fMapaStatus').value;
+  const grid = $('plantGrid');
+  const lista = USINAS.filter(u => !filtro || u.status === filtro);
+  grid.innerHTML = lista.map(u => {
+    const pct = Math.round((u.potAtual / u.kwp) * 100);
+    const color = u.status === 'off' ? 'var(--t3)' : u.status === 'al' ? 'var(--wn)' : 'var(--ok)';
+    return `
+    <div class="plant-card" data-nome="${u.nome}">
+      <div class="plant-top">
+        <div>
+          <div class="plant-name">${u.nome}</div>
+          <div class="plant-loc">${u.kwp.toLocaleString('pt-BR')} kWp instalados</div>
+        </div>
+        <div class="plant-status ${u.status}">${STATUS_LABEL[u.status]}</div>
+      </div>
+      <div class="gauge-row">
+        <div class="gauge" style="background:${gaugeGradient(pct, color)}">
+          <div class="gauge-inner"><b>${pct}%</b><span>carga</span></div>
+        </div>
+        <div class="plant-meta">
+          <div class="row"><span class="k">Potência atual</span><span class="v">${u.potAtual.toLocaleString('pt-BR')} kW</span></div>
+          <div class="row"><span class="k">Nominal</span><span class="v">${u.kwp.toLocaleString('pt-BR')} kWp</span></div>
+        </div>
+      </div>
+      <div class="inv-line">
+        <span>${u.invOn}/${u.invTotal} inversores online</span>
+        <div class="invchips">${Array.from({length:u.invTotal}).map((_,i) => `<span class="inv-dot ${i < u.invOn ? 'on':'off'}"></span>`).join('')}</div>
+      </div>
+    </div>`;
+  }).join('') || `<div style="grid-column:1/-1;text-align:center;padding:50px;color:var(--t3);"><i class="fas fa-solar-panel" style="font-size:26px;display:block;margin-bottom:8px;"></i>Nenhuma usina com esse status.</div>`;
+
+  grid.querySelectorAll('.plant-card').forEach(card => {
+    card.addEventListener('click', () => abrirPlantDetail(card.dataset.nome));
+  });
+}
+$('fMapaStatus').addEventListener('change', renderPlantGrid);
+
+/* =====================================================================
+   Detalhe da usina — grid de inversores
+   Endpoint real confirmado (SolarIQ server/routes/api.js):
+     GET /api/plants/:plantId/latest  →  getLatestByPlant(plantId)
+   Retorna 1 linha por device_id (última leitura, últimas 24h) com:
+   device_id, device_name, device_type, status, active_power_kw,
+   daily_energy_kwh, temperature_c, dc_voltage_v, ac_voltage_v,
+   efficiency_pct, yield_ratio — os mesmos campos usados abaixo.
+   Na Fase 7: trocar gerarInversoresMock(usina) por
+     fetch(`${SOLARIQ_BASE_URL}/api/plants/${usina.plantId}/latest`)
+   filtrando device_type === 'inverter'. Precisa mapear usina.plantId
+   (plant_id do SolarIQ) — hoje as usinas do OASIS não têm esse campo.
+   ===================================================================== */
+const STATUS_INV_LABEL = { normal:'Operando', standby:'Standby', fault:'Falha', offline:'Offline' };
+
+function gerarInversoresMock(usina){
+  const seed = usina.nome.length;
+  return Array.from({ length: usina.invTotal }, (_, i) => {
+    const idx = i + 1;
+    const isOffline = idx > usina.invOn;
+    const isFault = !isOffline && usina.status === 'al' && idx === usina.invOn;
+    const status = isOffline ? 'offline' : isFault ? 'fault' : 'normal';
+    const nominal_kw = +(usina.kwp / usina.invTotal).toFixed(1);
+    const active_power_kw = status === 'offline' ? 0 : +(nominal_kw * (0.7 + 0.25 * Math.sin(seed + idx)) * (status === 'fault' ? 0.3 : 1)).toFixed(1);
+    return {
+      device_id: `${usina.nome.replace(/\s+/g,'-').toUpperCase()}-INV${String(idx).padStart(2,'0')}`,
+      device_name: `Inversor ${String(idx).padStart(2,'0')}`,
+      device_type: 'inverter',
+      status,
+      active_power_kw,
+      daily_energy_kwh: status === 'offline' ? 0 : +(active_power_kw * 4.6).toFixed(1),
+      temperature_c: status === 'offline' ? null : +(38 + (idx % 5) * 2.3).toFixed(1),
+      dc_voltage_v: status === 'offline' ? null : +(590 + (idx % 4) * 6).toFixed(0),
+      ac_voltage_v: status === 'offline' ? null : +(380 + (idx % 3) * 2).toFixed(0),
+      efficiency_pct: status === 'offline' ? null : +(97.5 - (idx % 4) * 0.4).toFixed(1),
+      yield_ratio: nominal_kw > 0 ? +(active_power_kw / nominal_kw).toFixed(2) : null,
+    };
+  });
+}
+
+function renderInvCard(d){
+  const offline = d.status === 'offline';
+  return `
+    <div class="inv-card ${d.status}">
+      <div class="inv-card-top">
+        <div>
+          <div class="inv-name">${d.device_name}</div>
+          <div class="inv-id">${d.device_id}</div>
+        </div>
+        <div class="inv-status-badge ${d.status}">${STATUS_INV_LABEL[d.status]}</div>
+      </div>
+      <div class="inv-power">${d.active_power_kw.toLocaleString('pt-BR')}<span>kW</span></div>
+      <div class="inv-metrics">
+        <div class="m"><span class="k">Energia hoje</span><span class="v">${offline ? '—' : d.daily_energy_kwh.toLocaleString('pt-BR') + ' kWh'}</span></div>
+        <div class="m"><span class="k">Temperatura</span><span class="v">${offline ? '—' : d.temperature_c + ' °C'}</span></div>
+        <div class="m"><span class="k">Tensão CC</span><span class="v">${offline ? '—' : d.dc_voltage_v + ' V'}</span></div>
+        <div class="m"><span class="k">Tensão CA</span><span class="v">${offline ? '—' : d.ac_voltage_v + ' V'}</span></div>
+        <div class="m"><span class="k">Eficiência</span><span class="v">${offline ? '—' : d.efficiency_pct + '%'}</span></div>
+        <div class="m"><span class="k">Yield</span><span class="v">${offline || d.yield_ratio == null ? '—' : d.yield_ratio}</span></div>
+      </div>
+    </div>`;
+}
+
+function abrirPlantDetail(nome){
+  const usina = USINAS.find(u => u.nome === nome);
+  if (!usina) return;
+  const inversores = gerarInversoresMock(usina);
+
+  $('pdTitle').textContent = usina.nome;
+  $('pdSub').textContent = `${usina.kwp.toLocaleString('pt-BR')} kWp instalados · ${STATUS_LABEL[usina.status]}`;
+  $('pdOnline').textContent = `${usina.invOn}/${usina.invTotal}`;
+  $('invGrid').innerHTML = inversores.map(renderInvCard).join('');
+
+  $('viewPlantList').classList.add('hidden');
+  $('viewPlantDetail').classList.remove('hidden');
+  window.scrollTo(0,0);
+}
+$('btnBackPlant').addEventListener('click', () => {
+  $('viewPlantDetail').classList.add('hidden');
+  $('viewPlantList').classList.remove('hidden');
+});
+
+/* ===================== Alarmes ===================== */
+function populateFiltroAlarmesUsina(){
+  $('fAlUsina').innerHTML = '<option value="">Todas as usinas</option>' + USINAS.map(u => `<option value="${u.nome}">${u.nome}</option>`).join('');
+}
+function renderAlarmes(){
+  const fu = $('fAlUsina').value, fs = $('fAlSev').value, fst = $('fAlStatus').value;
+  const lista = ALARMES.filter(a =>
+    (!fu || a.usina === fu) && (!fs || a.sev === fs) && (!fst || a.status === fst)
+  );
+  const SEV_LABEL = { critico:'Crítico', atencao:'Atenção', info:'Info' };
+  $('alarmesBody').innerHTML = lista.map(a => `
+    <tr>
+      <td><span class="sev ${a.sev}">${SEV_LABEL[a.sev]}</span></td>
+      <td>${a.usina}</td>
+      <td>${a.ativo}</td>
+      <td>${a.desc}</td>
+      <td>${a.abertura.replace(' ', ' · ')}</td>
+      <td><span class="st-pill ${a.status}">${a.status === 'ativo' ? 'Ativo' : 'Resolvido'}</span></td>
+    </tr>`).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:30px;">Nenhum alarme encontrado.</td></tr>`;
+}
+['fAlUsina','fAlSev','fAlStatus'].forEach(id => $(id).addEventListener('change', renderAlarmes));
+
+/* ===================== Análises ===================== */
+let curvaChart = null;
+function gerarCurvaPotencia(kwp, seed){
+  const pontos = [];
+  for (let h = 0; h <= 23; h++) {
+    let v = 0;
+    if (h >= 6 && h <= 18) {
+      const x = (h - 12) / 6;
+      v = Math.max(0, kwp * (1 - x*x) * (0.88 + 0.12 * Math.sin(seed + h)));
+    }
+    pontos.push(Math.round(v));
+  }
+  return pontos;
+}
+function populateFiltroAnalisesUsina(){
+  $('fAnUsina').innerHTML = USINAS.map(u => `<option value="${u.nome}">${u.nome}</option>`).join('');
+}
+function renderAnalises(){
+  const nome = $('fAnUsina').value;
+  const u = USINAS.find(x => x.nome === nome) || USINAS[0];
+  const periodoLbl = { hoje:'hoje', '7d':'últimos 7 dias', '30d':'últimos 30 dias' }[$('fAnPeriodo').value];
+  $('anSub').textContent = `${u.nome} · ${periodoLbl}`;
+
+  const curva = gerarCurvaPotencia(u.kwp, u.nome.length);
+  const labels = Array.from({length:24}, (_,h) => `${String(h).padStart(2,'0')}h`);
+  const pico = Math.max(...curva);
+  const energiaMwh = (curva.reduce((s,v) => s+v, 0) / 1000).toFixed(1);
+
+  $('anPico').textContent = pico.toLocaleString('pt-BR');
+  $('anEnergia').textContent = energiaMwh.replace('.', ',');
+  $('anPR').textContent = (78 + (u.nome.length % 10)).toFixed(1).replace('.', ',');
+
+  if (curvaChart) curvaChart.destroy();
+  const cs = getComputedStyle(document.documentElement);
+  const corPrimaria = cs.getPropertyValue('--p').trim();
+  const corGrid = cs.getPropertyValue('--bdl').trim();
+  const corTexto = cs.getPropertyValue('--t3').trim();
+  curvaChart = new Chart($('curvaChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Potência (kW)',
+        data: curva,
+        borderColor: corPrimaria,
+        backgroundColor: corPrimaria.startsWith('#') ? corPrimaria + '22' : corPrimaria,
+        fill: true,
+        tension: .35,
+        pointRadius: 0,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display:false } },
+      scales: {
+        y: { beginAtZero:true, grid:{ color:corGrid }, ticks:{ font:{ size:10 }, color:corTexto } },
+        x: { grid:{ display:false }, ticks:{ font:{ size:10 }, maxTicksLimit:8, color:corTexto } },
+      }
+    }
+  });
+}
+['fAnUsina','fAnPeriodo'].forEach(id => $(id).addEventListener('change', renderAnalises));
+
+/* ===================== tabbar ===================== */
+document.querySelectorAll('.tabbtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tabbtn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tabview').forEach(v => v.classList.remove('active'));
+    btn.classList.add('active');
+    $('tab' + btn.dataset.tab.charAt(0).toUpperCase() + btn.dataset.tab.slice(1)).classList.add('active');
+    if (btn.dataset.tab === 'analises' && !curvaChart) renderAnalises();
+  });
+});
+
+/* ===================== toggle de tema ===================== */
+(function(){
+  const root = document.documentElement;
+  const btn = $('themeToggle');
+  function isLight(){ return root.getAttribute('data-theme') === 'light'; }
+  function updateIcon(){ btn.innerHTML = isLight() ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>'; }
+  updateIcon();
+  btn.addEventListener('click', () => {
+    if (isLight()) { root.removeAttribute('data-theme'); localStorage.setItem('oasis-theme','dark'); }
+    else { root.setAttribute('data-theme','light'); localStorage.setItem('oasis-theme','light'); }
+    updateIcon();
+    if (curvaChart) renderAnalises(); // recalcula cores do gráfico no novo tema
+  });
+})();
+
+/* ===================== init ===================== */
+renderKpisTopo();
+renderPlantGrid();
+populateFiltroAlarmesUsina();
+renderAlarmes();
+populateFiltroAnalisesUsina();
+</script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OASIS SOLAR — v2.0: Administração</title>
+<script>(function(){try{if(localStorage.getItem('oasis-theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="theme.css">
+<style>
+  body{background:var(--bg);}
+  .topbar{padding:0 28px;position:sticky;top:0;z-index:50;}
+  .tb-left{display:flex;align-items:center;gap:14px;}
+  .tb-back{width:34px;height:34px;border-radius:var(--r1);border:1px solid var(--bd);background:transparent;color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s;text-decoration:none;}
+  .tb-back:hover{background:var(--pxl);color:var(--p);border-color:var(--p);}
+  .tb-mod{display:flex;align-items:center;gap:9px;}
+  .tb-mod .icon{width:32px;height:32px;border-radius:8px;background:var(--pxl);color:var(--p);display:flex;align-items:center;justify-content:center;font-size:14px;}
+  .tb-mod .name{font-size:15px;font-weight:700;}
+  .content{max-width:1160px;margin:0 auto;padding:22px 28px 60px;}
+  .perm-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;font-size:12.5px;}
+  .perm-row:nth-child(odd){background:var(--bdl);}
+  .perm-chk{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2);}
+  .usina-chk{display:flex;align-items:center;gap:7px;padding:4px 6px;font-size:12.5px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-left">
+    <a href="hub.html" class="tb-back"><i class="fas fa-arrow-left"></i></a>
+    <div class="tb-mod">
+      <div class="icon"><i class="fas fa-user-shield"></i></div>
+      <div class="name">Administração</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="theme-toggle" id="themeToggle" title="Alternar tema"><i class="fas fa-sun"></i></button>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- ===================== conteúdo idêntico ao #sec-usuarios da v1.0, agora painel dedicado (fora do Relatório de Geração) ===================== -->
+  <div class="sec-bar">
+    <div><div class="sec-title">Gerenciamento de Usuários</div><div class="sec-desc">Criar, editar e remover usuários do sistema · acesso restrito a ADMIN</div></div>
+    <button class="btn btn-p" id="btnNovoUser"><i class="fas fa-user-plus"></i> Novo Usuário</button>
+  </div>
+  <div class="tcard">
+    <div class="thead-bar"><div class="tcard-title">Usuários cadastrados</div></div>
+    <table>
+      <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Último login</th><th>Criado em</th><th></th></tr></thead>
+      <tbody id="userTbl"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ===================== MODAL USUÁRIO (idêntico ao mUser da v1.0) ===================== -->
+<div class="moverlay" id="mUser">
+  <div class="modal" style="width:560px">
+    <div class="mh">
+      <div class="mt" id="mUserTitle"><i class="fas fa-user-plus" style="color:var(--p);margin-right:7px"></i>Novo Usuário</div>
+      <button class="mclose" id="btnCloseUser"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="fg">
+      <div class="fgrp full"><label class="flabel">Nome completo <span class="req">*</span></label><input class="finput" id="uNome" placeholder="Ex: Maria Silva"></div>
+      <div class="fgrp"><label class="flabel">E-mail <span class="req">*</span></label><input class="finput" type="email" id="uEmail" placeholder="usuario@exemplo.com"></div>
+      <div class="fgrp"><label class="flabel">Perfil <span class="req">*</span></label>
+        <select class="fselect" id="uRole">
+          <option value="VISUALIZADOR">Visualizador (apenas leitura)</option>
+          <option value="TECNICO">Técnico (lança dados, gera OS)</option>
+          <option value="ADMIN">Administrador (acesso total)</option>
+        </select>
+      </div>
+      <div class="fgrp"><label class="flabel">Senha</label><input class="finput" type="password" id="uSenha" placeholder="Deixe vazio para usar 1234"></div>
+      <div class="fgrp full" style="font-size:11px;color:var(--t3)">Nova conta é criada com senha padrão <b>1234</b> se este campo ficar vazio — o usuário deve trocar no primeiro acesso.</div>
+      <div class="fgrp full">
+        <label class="flabel">Usinas acessíveis</label>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:6px">Marque as usinas que este usuário pode visualizar. Se nenhuma estiver marcada, verá <strong>todas</strong>.</div>
+        <div id="uUsinasList" style="background:var(--bg);border:1px solid var(--bd);border-radius:var(--r1);padding:10px;max-height:180px;overflow-y:auto"></div>
+      </div>
+      <div class="fgrp full">
+        <label class="flabel">Permissões por seção</label>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:6px">Sobrepõe os defaults do perfil. Marque <strong>Ver</strong> para acessar a seção e <strong>Editar</strong> para criar/alterar/excluir.</div>
+        <div id="uPermsList" style="background:var(--bg);border:1px solid var(--bd);border-radius:var(--r1);padding:8px;overflow-y:auto;max-height:260px"></div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-o" id="btnCancelUser">Cancelar</button>
+      <button class="btn btn-p" id="btnSaveUser"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+/* dados reais — mesmas usinas de server/prisma/seed-real.js + seed-geracao.js */
+const USINAS = ['UFV Central','UFV Partinga-BA','UFV Sítio do Pescoço','UFV Pedro Canario I','UFV Pedro Canario II',
+  'UFV Bom Futuro','UFV Cerado Pedra I','UFV Cercado Pedra II','UFV Cercado Pedra III','UFV Efizi','UFV Nacional I','UFV Nacional II'];
+
+/* 10 seções reais — server/src/lib/permissoes.js (SECOES) */
+const SECOES = [
+  { id:'dashboard',   nome:'Painel Principal' },
+  { id:'cadastro',    nome:'Cadastro de Usinas' },
+  { id:'lancamento',  nome:'Lançamento de Dados' },
+  { id:'importar',    nome:'Importar Planilha' },
+  { id:'manutencao',  nome:'Manutenção' },
+  { id:'financeiro',  nome:'Financeiro' },
+  { id:'fit',         nome:'Fit Energia' },
+  { id:'comparativo', nome:'Comparativo' },
+  { id:'relatorio',   nome:'Relatório' },
+  { id:'usuarios',    nome:'Usuários (Admin)' },
+];
+
+const USERS = [
+  { nome:'Eduardo Motta',        email:'eduardoolimot@gmail.com',  role:'ADMIN',        ativo:true,  login:'08/07/2026 09:12', criado:'01/03/2026' },
+  { nome:'Ana Carolina',         email:'ana.carolina@oasis.local', role:'TECNICO',      ativo:true,  login:'08/07/2026 08:40', criado:'15/03/2026' },
+  { nome:'Salomão Otoni',        email:'salomao.otoni@oasis.local',role:'TECNICO',      ativo:true,  login:'07/07/2026 17:05', criado:'15/03/2026' },
+  { nome:'Visualizador FORTLEV', email:'fortlev@cliente.com',      role:'VISUALIZADOR', ativo:false, login:'—',                criado:'02/05/2026' },
+];
+const ROLE_PILL = { ADMIN:'p-bl', TECNICO:'p-gy', VISUALIZADOR:'p-gy' };
+
+function renderUserTbl(){
+  $('userTbl').innerHTML = USERS.map(u => `<tr>
+    <td><b>${u.nome}</b></td>
+    <td class="td2">${u.email}</td>
+    <td><span class="pill ${ROLE_PILL[u.role]}">${u.role}</span></td>
+    <td><span class="pill ${u.ativo?'p-ok':'p-er'}">${u.ativo?'Ativo':'Inativo'}</span></td>
+    <td class="td2">${u.login}</td>
+    <td class="td2">${u.criado}</td>
+    <td style="white-space:nowrap"><button class="bico" onclick="abrirUsuario('${u.nome}')"><i class="fas fa-edit"></i></button> <button class="bico er"><i class="fas fa-trash"></i></button></td>
+  </tr>`).join('');
+}
+
+function renderUsinasList(){
+  $('uUsinasList').innerHTML = USINAS.map(u => `<label class="usina-chk"><input type="checkbox" value="${u}"><span>${u}</span></label>`).join('');
+}
+function renderPermsList(role){
+  const defaults = {
+    ADMIN:        () => ({ ver:true, editar:true }),
+    TECNICO:      (s) => ({ ver: s!=='usuarios', editar: s!=='usuarios' }),
+    VISUALIZADOR: (s) => ({ ver: !['usuarios','importar'].includes(s), editar:false }),
+  }[role];
+  $('uPermsList').innerHTML = SECOES.map(s => {
+    const d = defaults(s.id);
+    return `<div class="perm-row">
+      <span>${s.nome}</span>
+      <label class="perm-chk"><input type="checkbox" ${d.ver?'checked':''}> Ver</label>
+      <label class="perm-chk"><input type="checkbox" ${d.editar?'checked':''}> Editar</label>
+    </div>`;
+  }).join('');
+}
+$('uRole').addEventListener('change', () => renderPermsList($('uRole').value));
+
+function abrirUsuario(nome){
+  const editando = !!nome;
+  $('mUserTitle').innerHTML = editando
+    ? '<i class="fas fa-user-edit" style="color:var(--p);margin-right:7px"></i>Editar Usuário'
+    : '<i class="fas fa-user-plus" style="color:var(--p);margin-right:7px"></i>Novo Usuário';
+  const u = USERS.find(x => x.nome === nome);
+  $('uNome').value = u?.nome || '';
+  $('uEmail').value = u?.email || '';
+  $('uRole').value = u?.role || 'VISUALIZADOR';
+  $('uSenha').value = '';
+  renderUsinasList();
+  renderPermsList($('uRole').value);
+  $('mUser').classList.add('open');
+}
+function fecharUsuario(){ $('mUser').classList.remove('open'); }
+$('btnNovoUser').addEventListener('click', () => abrirUsuario(null));
+$('btnCloseUser').addEventListener('click', fecharUsuario);
+$('btnCancelUser').addEventListener('click', fecharUsuario);
+$('btnSaveUser').addEventListener('click', fecharUsuario);
+window.abrirUsuario = abrirUsuario;
+
+/* toggle de tema */
+(function(){
+  const root = document.documentElement;
+  const btn = $('themeToggle');
+  function isLight(){ return root.getAttribute('data-theme') === 'light'; }
+  function updateIcon(){ btn.innerHTML = isLight() ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>'; }
+  updateIcon();
+  btn.addEventListener('click', () => {
+    if (isLight()) { root.removeAttribute('data-theme'); localStorage.setItem('oasis-theme','dark'); }
+    else { root.setAttribute('data-theme','light'); localStorage.setItem('oasis-theme','light'); }
+    updateIcon();
+  });
+})();
+
+renderUserTbl();
+</script>
+</body>
+</html>

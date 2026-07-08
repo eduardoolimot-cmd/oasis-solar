@@ -1,0 +1,94 @@
+/* =====================================================================
+   OASIS SOLAR v2.0 — Design tokens (SnowUI Dashboard, Figma community)
+   Fonte: node 4401:31629 — "eCommerce" screen
+   Dark mode = padrão (root). Light mode = [data-theme="light"].
+   Nomes de variável mantidos iguais aos usados nas páginas do mockup
+   (--p, --card, --bg, --t1 etc.) para não precisar reescrever CSS
+   existente — só trocar os valores por tema.
+   ===================================================================== */
+
+:root{
+  /* ---- Accent (igual nos dois temas — é a marca) ---- */
+  --p:#ADADFB;        /* Primary / lavender */
+  --pd:#7A6FE0;        /* Primary, tom forte (headers, texto sobre claro) */
+  --pl:#C7C4FF;        /* Primary, tom claro (hover) */
+  --pxl:rgba(173,173,251,.16); /* Primary tint (badges/ícones) */
+  --ac:#7DBBFF;        /* Secondary / blue */
+  --acl:rgba(125,187,255,.16);
+  --ok:#71DD8C;        /* Success / green */
+  --okl:rgba(113,221,140,.16);
+  --wn:#F2B84B;        /* Warning / amber (inferido — sem token no Figma) */
+  --wnl:rgba(242,184,75,.16);
+  --er:#FF8A8A;        /* Danger (inferido) */
+  --erl:rgba(255,138,138,.16);
+  --fin:#B899EB;       /* Purple — usado p/ categoria Financiamento */
+  --finl:rgba(184,153,235,.16);
+  --mint:#6BE6D3;
+
+  /* ---- Superfícies (dark) ---- */
+  --bg:#191921;         /* Canvas */
+  --card:#1F1F29;       /* Panel */
+  --surface:#26262F;    /* Surface elevada */
+  --sb:#141419;         /* Sidebar */
+  --bd:rgba(255,255,255,.12);
+  --bdl:rgba(255,255,255,.07);
+
+  /* ---- Texto (dark) ---- */
+  --t1:#FFFFFF;
+  --t2:rgba(255,255,255,.66);
+  --t3:rgba(255,255,255,.40);
+
+  /* ---- Escala ---- */
+  --r1:8px;--r2:12px;--r3:16px;--r4:24px;--rpill:999px;
+  --s1:0 1px 0 0 rgba(255,255,255,.06) inset, 0 8px 24px -12px rgba(0,0,0,.55);
+  --s2:0 1px 0 0 rgba(255,255,255,.06) inset, 0 12px 32px -10px rgba(0,0,0,.6);
+  --s3:0 1px 0 0 rgba(255,255,255,.06) inset, 0 24px 60px -16px rgba(0,0,0,.7);
+}
+
+:root[data-theme="light"]{
+  /* ---- Accent (levemente aprofundado p/ contraste em fundo branco) ---- */
+  --p:#7A6FE0;
+  --pd:#5B4FC4;
+  --pl:#ADADFB;
+  --pxl:#EDEEFC;       /* bg-highlight-lavender do Figma */
+  --ac:#3D7FD9;
+  --acl:#E6F1FD;       /* bg-highlight-blue do Figma */
+  --ok:#1F9C4A;        /* delta.up do stat-card.light no Figma */
+  --okl:#E3F9E9;
+  --wn:#B4790A;
+  --wnl:#FDF3E1;
+  --er:#D64545;        /* delta.down do stat-card.light no Figma */
+  --erl:#FDEAEA;
+  --fin:#8B5CF6;
+  --finl:#F1EBFD;
+  --mint:#0F9C87;
+
+  /* ---- Superfícies (light) ---- */
+  --bg:#F5F5FA;
+  --card:#FFFFFF;
+  --surface:#FBFBFE;
+  --sb:#141419;         /* sidebar permanece escura nos dois temas (identidade SnowUI) */
+  --bd:rgba(20,20,28,.10);
+  --bdl:rgba(20,20,28,.05);
+
+  /* ---- Texto (light) ---- */
+  --t1:#14141C;
+  --t2:rgba(20,20,28,.62);
+  --t3:rgba(20,20,28,.40);
+
+  --s1:0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.08);
+  --s2:0 4px 10px rgba(16,24,40,.06), 0 2px 4px rgba(16,24,40,.08);
+  --s3:0 20px 44px rgba(16,24,40,.14);
+}
+
+*{box-sizing:border-box;}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;}
+
+/* ---- Toggle de tema (botão redondo, mesmo padrão do .icon-btn do Figma) ---- */
+.theme-toggle{
+  width:36px;height:36px;border-radius:50%;
+  background:var(--bdl);border:1px solid var(--bd);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--t1);cursor:pointer;transition:all .2s;font-size:13px;
+}
+.theme-toggle:hover{background:var(--pxl);color:var(--p);border-color:var(--p);}

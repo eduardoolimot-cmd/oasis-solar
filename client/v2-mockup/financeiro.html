@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OASIS SOLAR — v2.0: Financeiro</title>
+<script>(function(){try{if(localStorage.getItem('oasis-theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="theme.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  body{background:var(--bg);}
+  .topbar{padding:0 28px;position:sticky;top:0;z-index:50;}
+  .tb-left{display:flex;align-items:center;gap:14px;}
+  .tb-back{width:34px;height:34px;border-radius:var(--r1);border:1px solid var(--bd);background:transparent;color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s;text-decoration:none;}
+  .tb-back:hover{background:var(--pxl);color:var(--p);border-color:var(--p);}
+  .tb-mod{display:flex;align-items:center;gap:9px;}
+  .tb-mod .icon{width:32px;height:32px;border-radius:8px;background:var(--okl);color:var(--ok);display:flex;align-items:center;justify-content:center;font-size:14px;}
+  .tb-mod .name{font-size:15px;font-weight:700;}
+  .content{max-width:1240px;margin:0 auto;padding:22px 28px 60px;}
+  .fin-lbl{font-size:12px;color:var(--t2);font-weight:600;margin-bottom:6px;}
+  .fin-val{font-size:19px;font-weight:800;}
+  .fin-sub{font-size:11px;color:var(--t3);margin-top:3px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-left">
+    <a href="hub.html" class="tb-back"><i class="fas fa-arrow-left"></i></a>
+    <div class="tb-mod">
+      <div class="icon"><i class="fas fa-sack-dollar"></i></div>
+      <div class="name">Financeiro</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="theme-toggle" id="themeToggle" title="Alternar tema"><i class="fas fa-sun"></i></button>
+    <button class="btn btn-o" id="btnImportFin"><i class="fas fa-file-import"></i> Importar Planilha</button>
+    <button class="btn btn-p" id="btnNovoFin"><i class="fas fa-plus"></i> Novo Lançamento</button>
+  </div>
+</div>
+
+<!-- ===================== conteúdo idêntico ao #sec-financeiro da v1.0 (client/index.html) ===================== -->
+<div class="content">
+
+  <div class="fbar">
+    <span class="flbl">Filtros</span>
+    <select class="fsel" id="finFU"><option value="">Todas as usinas</option></select>
+    <select class="fsel" id="finFA"><option>2026</option><option>2025</option></select>
+    <select class="fsel" id="finFM">
+      <option value="">Todos os meses</option>
+      <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option>
+      <option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option>
+    </select>
+    <select class="fsel" id="finFT">
+      <option value="">Todos os tipos</option>
+      <option value="rec">Receitas</option>
+      <option value="des">Despesas</option>
+      <option value="fin">Financiamento</option>
+    </select>
+    <div style="position:relative">
+      <button class="btn btn-o btn-sm" id="btnFinFCat" type="button" style="white-space:nowrap"><i class="fas fa-tags"></i> <span id="finFCatLabel">Todas categorias</span> <i class="fas fa-chevron-down" style="font-size:9px;margin-left:3px"></i></button>
+      <div id="finFCatPanel" style="display:none;position:absolute;top:calc(100% + 4px);right:0;z-index:30;background:var(--card);border:1px solid var(--bd);border-radius:var(--r2);box-shadow:var(--s3);min-width:260px;max-width:340px;max-height:340px;overflow-y:auto;padding:8px">
+        <div style="display:flex;gap:6px;padding:0 4px 8px;border-bottom:1px solid var(--bdl);margin-bottom:6px">
+          <button class="btn btn-o btn-sm" type="button" id="finFCatAll" style="flex:1;padding:4px;font-size:11px">Marcar todas</button>
+          <button class="btn btn-o btn-sm" type="button" id="finFCatNone" style="flex:1;padding:4px;font-size:11px">Limpar</button>
+        </div>
+        <div id="finFCatList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fin-kpi" id="finKpi"></div>
+
+  <div class="ch-grid" style="grid-template-columns:1.6fr 1fr;margin-bottom:16px">
+    <div class="ch-card">
+      <div class="ch-head"><div><div class="ch-title">Receitas vs Despesas por Mês</div><div class="ch-sub" id="finChartSub">Jan–Jun/2026</div></div></div>
+      <canvas id="finChart" style="max-height:230px"></canvas>
+    </div>
+    <div class="ch-card">
+      <div class="ch-head">
+        <div><div class="ch-title">Por Categoria</div><div class="ch-sub" id="finCatSub">Distribuição</div></div>
+        <div class="tabbar" style="margin:0">
+          <button class="tabbtn active" data-fincat="des" title="Despesas"><i class="fas fa-arrow-down" style="color:var(--er)"></i></button>
+          <button class="tabbtn" data-fincat="rec" title="Receitas"><i class="fas fa-arrow-up" style="color:var(--ok)"></i></button>
+          <button class="tabbtn" data-fincat="fin" title="Financiamento"><i class="fas fa-landmark" style="color:var(--fin)"></i></button>
+        </div>
+      </div>
+      <canvas id="finCatChart" style="max-height:230px"></canvas>
+    </div>
+  </div>
+
+  <div class="tcard">
+    <div class="thead-bar"><div class="tcard-title">Extrato</div></div>
+    <table><thead><tr><th>Data</th><th>Usina</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor (R$)</th><th>Status</th><th></th></tr></thead><tbody id="finTbl"></tbody></table>
+  </div>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+function corVar(nome){ return getComputedStyle(document.documentElement).getPropertyValue(nome).trim(); }
+function fmtBRL(v){ return 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+/* dados reais — mesmas usinas de server/prisma/seed-real.js + seed-geracao.js */
+const USINAS = ['UFV Central','UFV Partinga-BA','UFV Sítio do Pescoço','UFV Pedro Canario I','UFV Pedro Canario II',
+  'UFV Bom Futuro','UFV Cerado Pedra I','UFV Cercado Pedra II','UFV Cercado Pedra III','UFV Efizi','UFV Nacional I','UFV Nacional II'];
+$('finFU').innerHTML += USINAS.map(u => `<option>${u}</option>`).join('');
+
+const EXTRATO = [
+  { data:'2026-07-05', usina:'UFV Efizi',            tipo:'rec', cat:'Fit',          desc:'Faturamento Fit — 01/2026', valor:9020,  st:'pg' },
+  { data:'2026-07-04', usina:'UFV Bom Futuro',       tipo:'des', cat:'O&M',          desc:'Manutenção preventiva mensal', valor:8200,  st:'pg' },
+  { data:'2026-07-03', usina:'UFV Cercado Pedra II', tipo:'rec', cat:'Fit',          desc:'Faturamento Fit — 01/2026', valor:10160, st:'pg' },
+  { data:'2026-07-02', usina:'—',                    tipo:'fin', cat:'Financiamento',desc:'Parcela financiamento BNDES', valor:12000, st:'pg' },
+  { data:'2026-07-01', usina:'UFV Nacional I',       tipo:'des', cat:'Seguro',       desc:'Apólice anual — parcela', valor:3100,  st:'pend' },
+  { data:'2026-06-28', usina:'UFV Cerado Pedra I',   tipo:'rec', cat:'Fit',          desc:'Faturamento Fit — 12/2025', valor:10040, st:'pg' },
+  { data:'2026-06-25', usina:'UFV Central',          tipo:'des', cat:'O&M',          desc:'Troca de conectores CC', valor:14500, st:'pg' },
+  { data:'2026-06-20', usina:'UFV Partinga-BA',      tipo:'des', cat:'Impostos',     desc:'ICMS sobre geração', valor:9800,  st:'prev' },
+];
+const TIPO_LBL = { rec:'Receita', des:'Despesa', fin:'Financiamento' };
+const TIPO_PILL = { rec:'p-ok', des:'p-er', fin:'p-bl' };
+const TIPO_COR = { rec:'var(--ok)', des:'var(--er)', fin:'var(--fin)' };
+const ST_PILL = { pg:'p-ok', pend:'p-wn', prev:'p-gy' };
+const ST_LBL = { pg:'Pago', pend:'Pendente', prev:'Previsto' };
+
+function renderFinKpi(){
+  const receitas = EXTRATO.filter(e=>e.tipo==='rec').reduce((s,e)=>s+e.valor,0);
+  const despesas = EXTRATO.filter(e=>e.tipo==='des').reduce((s,e)=>s+e.valor,0);
+  const financiamentos = EXTRATO.filter(e=>e.tipo==='fin').reduce((s,e)=>s+e.valor,0);
+  const liquidoOperacional = receitas - despesas;
+  const liquidoTotal = liquidoOperacional - financiamentos;
+  const margem = receitas ? ((liquidoTotal/receitas)*100).toFixed(1) : 0;
+  $('finKpi').innerHTML = `
+    <div class="fin-card"><div class="fin-lbl">Receitas</div><div class="fin-val" style="color:var(--ok)">${fmtBRL(receitas)}</div><div class="fin-sub">${EXTRATO.filter(e=>e.tipo==='rec').length} lançamentos</div></div>
+    <div class="fin-card"><div class="fin-lbl">Despesas</div><div class="fin-val" style="color:var(--er)">${fmtBRL(despesas)}</div><div class="fin-sub">${EXTRATO.filter(e=>e.tipo==='des').length} lançamentos</div></div>
+    <div class="fin-card"><div class="fin-lbl">Financiamento</div><div class="fin-val" style="color:var(--fin)">${fmtBRL(financiamentos)}</div><div class="fin-sub">${EXTRATO.filter(e=>e.tipo==='fin').length} lançamentos</div></div>
+    <div class="fin-card ${liquidoOperacional>=0?'hl':''}" title="Receitas - Despesas (sem financiamento)"><div class="fin-lbl">Líquido Operacional</div><div class="fin-val" style="color:${liquidoOperacional>=0?'var(--p)':'var(--er)'}">${fmtBRL(liquidoOperacional)}</div><div class="fin-sub">${liquidoOperacional>=0?'Superávit':'Déficit'}</div></div>
+    <div class="fin-card" title="Receitas - Despesas - Financiamento"><div class="fin-lbl">Líquido Total</div><div class="fin-val" style="color:${liquidoTotal>=0?'var(--p)':'var(--er)'}">${fmtBRL(liquidoTotal)}</div><div class="fin-sub">Margem ${margem}%</div></div>`;
+}
+
+function renderFinTbl(){
+  $('finTbl').innerHTML = EXTRATO.map(e => `<tr>
+    <td class="td2">${new Date(e.data).toLocaleDateString('pt-BR')}</td>
+    <td><strong>${e.usina}</strong></td>
+    <td><span class="pill ${TIPO_PILL[e.tipo]}">${TIPO_LBL[e.tipo]}</span></td>
+    <td>${e.cat}</td>
+    <td class="td2">${e.desc}</td>
+    <td style="font-weight:700;color:${TIPO_COR[e.tipo]}">${fmtBRL(e.valor)}</td>
+    <td><span class="pill ${ST_PILL[e.st]}">${ST_LBL[e.st]}</span></td>
+    <td style="white-space:nowrap"><button class="bico"><i class="fas fa-edit"></i></button> <button class="bico er"><i class="fas fa-trash"></i></button></td>
+  </tr>`).join('');
+}
+
+let finChart, finCatChart;
+let finCatTipo = 'des';
+function renderFinChart(){
+  const meses = ['Fev','Mar','Abr','Mai','Jun','Jul'];
+  const corTexto = corVar('--t3'), corGrid = corVar('--bdl');
+  finChart?.destroy();
+  finChart = new Chart($('finChart'), {
+    type:'bar',
+    data:{ labels:meses,
+      datasets:[
+        { label:'Receitas', data:[19.2,21.4,20.1,18.8,22.3,29.2], backgroundColor:corVar('--ok'), borderRadius:5 },
+        { label:'Despesas', data:[7.1,8.4,7.8,8.9,9.2,11.5], backgroundColor:corVar('--er'), borderRadius:5 },
+      ]},
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10 }, color:corTexto } } },
+      scales:{ y:{ grid:{ color:corGrid }, ticks:{ color:corTexto } }, x:{ ticks:{ color:corTexto } } } }
+  });
+}
+function renderFinCatChart(){
+  const corTexto = corVar('--t3');
+  const DADOS = {
+    des: { labels:['O&M','Seguro','Impostos','Outros'], valores:[38,14,22,9], cores:[corVar('--ac'), corVar('--mint'), corVar('--wn'), corVar('--t3')] },
+    rec: { labels:['Fit','Venda Direta','Outros'], valores:[62,28,10], cores:[corVar('--ok'), corVar('--ac'), corVar('--t3')] },
+    fin: { labels:['BNDES','Banco Privado'], valores:[70,30], cores:[corVar('--fin'), corVar('--pl')] },
+  }[finCatTipo];
+  finCatChart?.destroy();
+  finCatChart = new Chart($('finCatChart'), {
+    type:'doughnut',
+    data:{ labels:DADOS.labels, datasets:[{ data:DADOS.valores, backgroundColor:DADOS.cores }] },
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:9, font:{ size:9.5 }, color:corTexto } } } }
+  });
+}
+document.querySelectorAll('[data-fincat]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-fincat]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    finCatTipo = btn.dataset.fincat;
+    renderFinCatChart();
+  });
+});
+
+/* categorias — dropdown multi-select (visual, igual v1.0) */
+const CATS = ['Fit','O&M','Seguro','Impostos','Financiamento','Outros'];
+$('finFCatList').innerHTML = CATS.map(c => `<label style="display:flex;align-items:center;gap:7px;padding:5px 6px;cursor:pointer;border-radius:4px;font-size:13px">
+  <input type="checkbox" checked style="width:15px;height:15px;cursor:pointer"><span>${c}</span></label>`).join('');
+$('btnFinFCat').addEventListener('click', () => { $('finFCatPanel').style.display = $('finFCatPanel').style.display==='block' ? 'none':'block'; });
+document.addEventListener('click', (e) => { if (!$('btnFinFCat').contains(e.target) && !$('finFCatPanel').contains(e.target)) $('finFCatPanel').style.display='none'; });
+
+/* toggle de tema */
+(function(){
+  const root = document.documentElement;
+  const btn = $('themeToggle');
+  function isLight(){ return root.getAttribute('data-theme') === 'light'; }
+  function updateIcon(){ btn.innerHTML = isLight() ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>'; }
+  updateIcon();
+  btn.addEventListener('click', () => {
+    if (isLight()) { root.removeAttribute('data-theme'); localStorage.setItem('oasis-theme','dark'); }
+    else { root.setAttribute('data-theme','light'); localStorage.setItem('oasis-theme','light'); }
+    updateIcon();
+    renderFinChart(); renderFinCatChart();
+  });
+})();
+
+/* init */
+renderFinKpi();
+renderFinTbl();
+renderFinChart();
+renderFinCatChart();
+</script>
+</body>
+</html>
