@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OASIS SOLAR — v2.0: Relatório de Geração</title>
+<script>(function(){try{if(localStorage.getItem('oasis-theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="../theme.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  body.app{overflow-x:hidden;}
+  .sb-back{display:flex;align-items:center;gap:8px;padding:11px 20px;font-size:11.5px;font-weight:700;color:rgba(255,255,255,.55);cursor:pointer;border-bottom:1px solid rgba(255,255,255,.08);text-decoration:none;transition:color .2s;}
+  .sb-back:hover{color:#fff;}
+  /* accent do sidebar (nav ativo/role-tag) realinhado ao novo design system —
+     valores fixos (não var()) porque a sidebar fica sempre escura nos dois temas */
+  .nav-item.active{background:rgba(173,173,251,.18) !important;border-color:rgba(173,173,251,.35) !important;}
+  .nav-item.active i{color:#ADADFB !important;}
+  .role-tag{background:rgba(173,173,251,.22) !important;color:#ADADFB !important;}
+  .user-av{background:#7DBBFF !important;}
+  /* aba OS — extensão v2.0 sobre o Kanban real (não existe na v1.0) */
+  .os-pill{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;}
+  .os-pill.ok{background:var(--okl);color:var(--ok);}
+  .os-pill.alerta{background:var(--wnl);color:var(--wn);}
+  .os-pill.falhou{background:var(--erl);color:var(--er);}
+  .os-pill.pendente{background:var(--bg);color:var(--t3);border:1px solid var(--bd);}
+  .os-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+  .os-card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r3);box-shadow:var(--s1);padding:14px;cursor:pointer;transition:all .2s;}
+  .os-card:hover{box-shadow:var(--s2);border-color:var(--p);}
+  .os-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px;}
+  .os-num{font-size:12.5px;font-weight:800;color:var(--pd);}
+  .os-card-planta{font-size:13.5px;font-weight:700;margin-bottom:3px;}
+  .os-card-meta{font-size:11px;color:var(--t2);display:flex;flex-direction:column;gap:2px;}
+</style>
+</head>
+<body class="app">
+
+<!-- ===================== SIDEBAR (mesma ordem/rótulos da v1.0 — Financeiro e Usuários viraram módulos à parte) ===================== -->
+<aside class="sb">
+  <div class="sb-logo">
+    <div class="icon"><i class="fas fa-sun"></i></div>
+    <div class="title">OASIS SOLAR</div>
+    <div class="sub">RELATÓRIO DE GERAÇÃO</div>
+  </div>
+  <a href="../hub.html" class="sb-back"><i class="fas fa-arrow-left"></i> Voltar ao Hub</a>
+  <nav class="sb-nav">
+    <div class="sb-lbl">Principal</div>
+    <div class="nav-item active" data-section="dashboard"><i class="fas fa-chart-line"></i>Painel Principal</div>
+    <div class="nav-item" data-section="cadastro"><i class="fas fa-solar-panel"></i>Cadastro de Usinas</div>
+    <div class="sb-lbl">Operação</div>
+    <div class="nav-item" data-section="lancamento"><i class="fas fa-upload"></i>Lançamento de Dados</div>
+    <div class="nav-item" data-section="importar"><i class="fas fa-file-import"></i>Importar Planilha</div>
+    <div class="nav-item" data-section="manutencao"><i class="fas fa-tools"></i>Manutenção</div>
+    <div class="sb-lbl">Análise</div>
+    <div class="nav-item" data-section="fit"><i class="fas fa-receipt"></i>Fit Energia</div>
+    <div class="nav-item" data-section="comparativo"><i class="fas fa-balance-scale"></i>Comparativo</div>
+    <div class="nav-item" data-section="relatorio"><i class="fas fa-file-alt"></i>Relatório</div>
+  </nav>
+  <div class="sb-foot">
+    <div class="user-badge">
+      <div class="user-av">EM</div>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:#fff">Eduardo Motta</div>
+        <span class="role-tag">ADMIN</span>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ===================== MAIN ===================== -->
+<div class="main">
+  <div class="topbar">
+    <button class="tb-btn menu-toggle" id="btnMenu" title="Menu" style="display:none;margin-right:8px"><i class="fas fa-bars"></i></button>
+    <div style="flex:1;min-width:0">
+      <div class="pg-title" id="pgTitle">Painel Principal</div>
+      <div class="pg-bread" id="pgBread">Visão geral do parque fotovoltaico</div>
+    </div>
+    <div class="tb-right">
+      <span style="font-size:10px;font-weight:700;color:var(--p);background:var(--pxl);padding:3px 9px;border-radius:20px;">v2.0</span>
+      <div class="status-badge"><div class="status-dot"></div><span>Online</span></div>
+      <button class="theme-toggle" id="themeToggle" title="Alternar tema"><i class="fas fa-sun"></i></button>
+    </div>
+  </div>
+
+  <div class="content">
+
+  <!-- ===================== DASHBOARD (id/estrutura idênticos à v1.0) ===================== -->
+  <div id="sec-dashboard" class="section active">
+    <div class="fbar">
+      <span class="flbl"><i class="fas fa-filter"></i> Filtros</span>
+      <select class="fsel" id="fAno"><option>2026</option><option>2025</option></select>
+      <select class="fsel" id="fMes">
+        <option value="">Todos os meses</option>
+        <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option>
+        <option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option>
+      </select>
+      <select class="fsel" id="fUsina"><option value="">Todas as Usinas</option></select>
+      <select class="fsel" id="fSkid"><option value="">Todos os SKIDs</option></select>
+      <button class="btn btn-p" id="btnApplyFilter"><i class="fas fa-search"></i> Aplicar</button>
+      <button class="btn btn-o" id="btnClearFilter"><i class="fas fa-times"></i> Limpar</button>
+    </div>
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="ch-grid">
+      <div class="ch-card">
+        <div class="ch-head"><div><div class="ch-title">Geração Mensal × Prevista</div><div class="ch-sub" id="chartSub">Jan–Jun/2026</div></div></div>
+        <canvas id="mainChart"></canvas>
+      </div>
+      <div class="ch-card">
+        <div class="ch-head"><div><div class="ch-title">Por Usina</div><div class="ch-sub">Participação na geração</div></div></div>
+        <canvas id="pieChart"></canvas>
+      </div>
+    </div>
+    <div class="ch-grid" style="grid-template-columns:1fr 1fr">
+      <div class="ch-card">
+        <div class="ch-head"><div><div class="ch-title">Irradiação Mensal — Prevista × Realizada</div><div class="ch-sub">kWh/m²</div></div></div>
+        <canvas id="irradChart"></canvas>
+      </div>
+      <div class="ch-card">
+        <div class="ch-head"><div><div class="ch-title">Produtividade (Yield Específico)</div><div class="ch-sub" id="yieldSub">kWh/kWp por mês</div></div></div>
+        <canvas id="yieldChart"></canvas>
+      </div>
+    </div>
+    <div class="tcard">
+      <div class="thead-bar"><div class="tcard-title">Detalhamento Mês a Mês</div></div>
+      <table><thead><tr><th>Mês</th><th>Geração Real</th><th>Geração Prev.</th><th>Variação</th><th>Irradiação</th><th>PR</th><th>Disponib.</th></tr></thead><tbody id="monthTblBody"></tbody></table>
+    </div>
+    <div class="tcard">
+      <div class="thead-bar">
+        <div class="tcard-title">Desempenho por Usina</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-o btn-sm" id="btnExpLancCSV"><i class="fas fa-file-csv"></i> Lançamentos CSV</button>
+          <button class="btn btn-ok btn-sm" id="btnExpPDF" title="Selecione uma usina e mês"><i class="fas fa-file-pdf"></i> Relatório PDF</button>
+        </div>
+      </div>
+      <table><thead><tr><th>Usina</th><th>Potência</th><th>Geração Real</th><th>Prev. (c/ deg.)</th><th>Yield</th><th>PR</th><th>Disp.</th><th>Status</th></tr></thead><tbody id="dashTblBody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ===================== CADASTRO (u-card, igual v1.0) ===================== -->
+  <div id="sec-cadastro" class="section">
+    <div class="sec-bar">
+      <div><div class="sec-title">Cadastro de Usinas</div><div class="sec-desc">Gerenciar usinas, módulos e SKIDs</div></div>
+      <button class="btn btn-p" id="btnNovaUsina"><i class="fas fa-plus"></i> Nova Usina</button>
+    </div>
+    <div id="cadList"></div>
+  </div>
+
+  <!-- ===================== LANÇAMENTO ===================== -->
+  <div id="sec-lancamento" class="section">
+    <div class="sec-bar"><div><div class="sec-title">Lançamento de Dados</div><div class="sec-desc">Registrar geração mensal</div></div></div>
+    <div class="tcard" style="padding:20px">
+      <div style="font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:7px" id="lFormTitle"><i class="fas fa-upload" style="color:var(--p)"></i> Novo Lançamento</div>
+      <div class="fg">
+        <div class="fgrp"><label class="flabel">Usina <span class="req">*</span></label><select class="fselect" id="lUsina"></select></div>
+        <div class="fgrp"><label class="flabel">SKID</label><select class="fselect" id="lSkid"><option value="">Geral (sem SKID)</option></select></div>
+        <div class="fgrp"><label class="flabel">Mês/Ano <span class="req">*</span></label><input type="month" class="finput" id="lPer" value="2026-01"></div>
+        <div class="fgrp"><label class="flabel">Geração Real (kWh) <span class="req">*</span></label><input type="number" class="finput" id="lGen" placeholder="Ex: 185000"></div>
+        <div class="fgrp"><label class="flabel">Irradiação (kWh/m²)</label><input type="number" class="finput" id="lIrr" step="0.1"></div>
+        <div class="fgrp"><label class="flabel">PR (%)</label><input type="number" class="finput" id="lPR" step="0.1" min="0" max="100"></div>
+        <div class="fgrp"><label class="flabel">Disponibilidade (%)</label><input type="number" class="finput" id="lDisp" step="0.1"></div>
+        <div class="fgrp"><label class="flabel">Observações</label><input type="text" class="finput" id="lObs"></div>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:16px;padding-top:13px;border-top:1px solid var(--bd)">
+        <button class="btn btn-p" id="btnSaveLanc"><i class="fas fa-save"></i> Salvar</button>
+        <button class="btn btn-o" id="btnClearLanc"><i class="fas fa-eraser"></i> Limpar / Cancelar</button>
+      </div>
+    </div>
+    <div class="tcard">
+      <div class="thead-bar">
+        <div class="tcard-title">Histórico</div>
+        <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+          <select class="fsel" id="lFU"><option value="">Todas as usinas</option></select>
+          <select class="fsel" id="lFA"><option value="">Todos os anos</option></select>
+          <select class="fsel" id="lFM"><option value="">Todos os meses</option></select>
+        </div>
+      </div>
+      <table><thead><tr><th>Usina</th><th>SKID</th><th>Período</th><th>Geração (kWh)</th><th>Irrad.</th><th>PR</th><th>Disp.</th><th>Obs.</th><th></th></tr></thead><tbody id="lancHist"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ===================== IMPORTAR ===================== -->
+  <div id="sec-importar" class="section">
+    <div class="sec-bar">
+      <div><div class="sec-title">Importar via Planilha</div><div class="sec-desc">Carregue o modelo CSV para inserir dados em lote</div></div>
+      <button class="btn btn-o btn-sm" id="btnDownloadModelo"><i class="fas fa-download"></i> Baixar Modelo CSV</button>
+    </div>
+    <div class="alert alert-i"><i class="fas fa-info-circle"></i><div><strong>Formato:</strong> Usina, SKID e Ano nas 3 primeiras linhas. Colunas: Mês; Geração; Irradiação; PR; Disponibilidade. Separador: ponto e vírgula (;)</div></div>
+    <div class="tcard" style="padding:20px">
+      <div class="fg" style="margin-bottom:14px">
+        <div class="fgrp"><label class="flabel">Usina destino <span class="req">*</span></label><select class="fselect" id="impUsina"></select></div>
+        <div class="fgrp"><label class="flabel">Ano (sobrescreve o do CSV)</label><input type="text" class="finput" id="impAno" placeholder="Opcional — ex: 2026" maxlength="4"></div>
+      </div>
+      <div class="import-zone" id="importZone">
+        <i class="fas fa-file-upload"></i>
+        <strong>Clique ou arraste o arquivo CSV</strong><br>
+        <small>Separador ponto e vírgula (;)</small>
+      </div>
+      <input type="file" id="csvFile" accept=".csv,.txt" style="display:none">
+      <div id="importPreview" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <!-- ===================== MANUTENÇÃO (Kanban real + aba OS, extensão v2.0) ===================== -->
+  <div id="sec-manutencao" class="section">
+    <div class="sec-bar">
+      <div><div class="sec-title">Manutenção</div><div class="sec-desc">Kanban — arraste para mover entre colunas</div></div>
+      <button class="btn btn-p" id="btnNovaManut"><i class="fas fa-plus"></i> Nova O.S.</button>
+    </div>
+    <div class="tabbar">
+      <button class="tabbtn active" id="tabKanban"><i class="fas fa-columns"></i> Kanban</button>
+      <button class="tabbtn" id="tabOS"><i class="fas fa-clipboard-check"></i> Ordens de Serviço (OS)</button>
+    </div>
+    <div id="viewKanban">
+      <div class="fbar">
+        <span class="flbl">Filtros</span>
+        <select class="fsel" id="mFU"><option value="">Todas as usinas</option></select>
+        <select class="fsel" id="mFT">
+          <option value="">Todos os tipos</option>
+          <option value="prev">Preventiva</option>
+          <option value="corr">Corretiva</option>
+          <option value="pred">Preditiva</option>
+          <option value="plan">Planejada</option>
+        </select>
+        <select class="fsel" id="mFA"><option value="">Todos os anos</option></select>
+      </div>
+      <div class="kb-board" id="kanbanBoard"></div>
+    </div>
+    <div id="viewOS" style="display:none;">
+      <div class="fbar">
+        <span class="flbl">Filtros</span>
+        <select class="fsel" id="osFU"><option value="">Todas as usinas</option></select>
+        <select class="fsel" id="osFS"><option value="">Todos os status</option><option>Aguardando execução</option><option>Sem pendências</option><option>Com alertas</option><option>Com falhas</option></select>
+      </div>
+      <div class="os-grid" id="osGrid"></div>
+    </div>
+  </div>
+
+  <!-- ===================== FIT ENERGIA ===================== -->
+  <div id="sec-fit" class="section">
+    <div class="sec-bar">
+      <div><div class="sec-title">Fit Energia</div><div class="sec-desc">Relatórios de faturamento (PDF/Excel) com comparativo geração × faturamento</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-o" id="btnFitUploadXls"><i class="fas fa-file-excel"></i> Carregar Excel</button>
+        <button class="btn btn-p" id="btnFitUpload"><i class="fas fa-file-pdf"></i> Carregar PDF</button>
+      </div>
+    </div>
+    <div class="fbar">
+      <span class="flbl">Filtros</span>
+      <select class="fsel" id="fitFU"><option value="">Todas as usinas</option></select>
+      <select class="fsel" id="fitFA"><option>2026</option></select>
+      <select class="fsel" id="fitFM"><option value="">Todos os meses</option></select>
+    </div>
+    <div class="kpi-grid" id="fitKpi" style="grid-template-columns:repeat(4,1fr)"></div>
+    <div class="tcard">
+      <div class="thead-bar"><div class="tcard-title">Relatórios Fit</div></div>
+      <table>
+        <thead><tr>
+          <th>Período</th><th>Usina</th><th>SKID</th><th>Distribuidora</th>
+          <th>Geração Relatório (kWh)</th><th>Geração Usina (kWh)</th>
+          <th>Diferença</th><th>Valor Faturado</th><th>Tarifa (R$/kWh)</th><th>PDF</th><th></th>
+        </tr></thead>
+        <tbody id="fitTbl"></tbody>
+      </table>
+    </div>
+    <div class="ch-card">
+      <div class="ch-head"><div><div class="ch-title">Comparativo Mensal — Geração Usina × Relatório Fit</div><div class="ch-sub">kWh por mês</div></div></div>
+      <canvas id="fitChart" style="max-height:260px"></canvas>
+    </div>
+  </div>
+
+  <!-- ===================== COMPARATIVO ===================== -->
+  <div id="sec-comparativo" class="section">
+    <div class="sec-bar"><div><div class="sec-title">Comparativo</div><div class="sec-desc">Compare desempenho entre usinas</div></div></div>
+    <div class="fbar">
+      <span class="flbl">Filtros</span>
+      <select class="fsel" id="cAno"><option>2026</option></select>
+      <select class="fsel" id="cMes">
+        <option value="">Acumulado</option>
+        <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option>
+        <option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option>
+      </select>
+      <button class="btn btn-p" id="btnCompUpdate"><i class="fas fa-sync-alt"></i> Atualizar</button>
+      <div class="tabbar" style="margin:0">
+        <button class="tabbtn active" data-comptype="line"><i class="fas fa-chart-line"></i> Linha</button>
+        <button class="tabbtn" data-comptype="bar"><i class="fas fa-chart-bar"></i> Barra</button>
+      </div>
+      <button class="btn btn-o btn-sm" id="btnCompPNG"><i class="fas fa-image"></i> PNG</button>
+    </div>
+    <div style="margin-bottom:13px">
+      <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:7px">Selecionar usinas:</div>
+      <div id="compChips" style="display:flex;flex-wrap:wrap;gap:7px"></div>
+    </div>
+    <div id="compGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-bottom:16px"></div>
+    <div class="ch-card">
+      <div class="ch-head"><div><div class="ch-title">Geração Mensal por Usina (MWh)</div><div class="ch-sub">Linha por usina selecionada</div></div></div>
+      <canvas id="compChart" style="max-height:260px"></canvas>
+    </div>
+  </div>
+
+  <!-- ===================== RELATÓRIO ===================== -->
+  <div id="sec-relatorio" class="section">
+    <div class="sec-bar"><div><div class="sec-title">Relatório</div><div class="sec-desc">Gere relatórios em PDF</div></div></div>
+    <div class="tabbar" id="relTabBar" style="margin-bottom:18px">
+      <button class="tabbtn active" data-reltab="rGer"><i class="fas fa-bolt"></i> Geração</button>
+      <button class="tabbtn" data-reltab="rFin"><i class="fas fa-dollar-sign"></i> Financeiro</button>
+    </div>
+    <div id="rGer" class="reltabcontent">
+      <div class="tcard" style="padding:20px;margin-bottom:16px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:13px"><i class="fas fa-info-circle" style="color:var(--p);margin-right:6px"></i>Relatório de Geração Mensal</div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:14px">Gera um PDF com KPIs do mês, comparação real × previsto (geração, irradiação, PR) e histórico de manutenções da usina.</div>
+        <div class="fg">
+          <div class="fgrp"><label class="flabel">Usina <span class="req">*</span></label><select class="fselect" id="relGerUsina"></select></div>
+          <div class="fgrp"><label class="flabel">Ano <span class="req">*</span></label><select class="fselect" id="relGerAno"><option>2026</option></select></div>
+          <div class="fgrp"><label class="flabel">Mês <span class="req">*</span></label>
+            <select class="fselect" id="relGerMes">
+              <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Março</option>
+              <option value="04">Abril</option><option value="05">Maio</option><option value="06">Junho</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:9px;margin-top:16px;padding-top:13px;border-top:1px solid var(--bd)">
+          <button class="btn btn-p" id="btnRelGerPDF"><i class="fas fa-file-pdf"></i> Gerar PDF</button>
+        </div>
+      </div>
+      <div class="tcard" style="padding:20px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--t2)">Pré-visualização dos dados</div>
+        <div id="relGerPreview"></div>
+      </div>
+    </div>
+    <div id="rFin" class="reltabcontent" style="display:none">
+      <div class="tcard" style="padding:20px;">
+        <div style="font-size:14px;font-weight:700;margin-bottom:13px"><i class="fas fa-info-circle" style="color:var(--p);margin-right:6px"></i>Relatório Financeiro</div>
+        <div style="font-size:12px;color:var(--t2);">Este relatório agora fica no módulo <a href="../financeiro.html" style="color:var(--p);font-weight:700">Financeiro</a>, independente do Relatório de Geração.</div>
+      </div>
+    </div>
+  </div>
+
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+function corVar(nome){ return getComputedStyle(document.documentElement).getPropertyValue(nome).trim(); }
+
+/* ===================== navegação sidebar ===================== */
+document.querySelectorAll('.nav-item[data-section]').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    item.classList.add('active');
+    $('sec-' + item.dataset.section).classList.add('active');
+    const label = item.textContent.trim();
+    $('pgTitle').textContent = label;
+    $('pgBread').textContent = label;
+    document.body.classList.remove('sb-open');
+  });
+});
+$('btnMenu')?.addEventListener('click', () => document.body.classList.toggle('sb-open'));
+document.addEventListener('click', (e) => {
+  if (!document.body.classList.contains('sb-open')) return;
+  const sb = document.querySelector('.sb');
+  const btn = $('btnMenu');
+  if (sb && !sb.contains(e.target) && !btn.contains(e.target)) document.body.classList.remove('sb-open');
+});
+
+/* ===================== dados reais — server/prisma/seed-real.js + seed-geracao.js ===================== */
+const USINAS = [
+  { nome:'UFV Central',           kwp:6800,   inicio:'2024-01-01', skids:['SKID F1','SKID F2','SKID F3','SKID F4','SKID F5'], geracao:954.6,  previsto:871.6,  pr:87.6,  disp:98.2 },
+  { nome:'UFV Partinga-BA',       kwp:8500,   inicio:'2024-01-01', skids:['SKID1','SKID2','SKID3','SKID4','SKID5'],           geracao:1125.1, previsto:1187.0, pr:75.8,  disp:96.5 },
+  { nome:'UFV Sítio do Pescoço',  kwp:4000,   inicio:'2024-01-01', skids:['USINA1.1','USINA1.2','USINA1.3','USINA1.4'],       geracao:495.3,  previsto:458.7,  pr:86.4,  disp:97.9 },
+  { nome:'UFV Pedro Canario I',   kwp:3500,   inicio:'2024-01-01', skids:['SKID1','SKID2','SKID3'],                          geracao:514.7,  previsto:494.1,  pr:83.3,  disp:98.6 },
+  { nome:'UFV Pedro Canario II',  kwp:3000,   inicio:'2024-01-01', skids:['SKID1','SKID2','SKID3'],                          geracao:434.8,  previsto:695.7,  pr:50.0,  disp:91.4 },
+  { nome:'UFV Bom Futuro',        kwp:108.16, inicio:'2024-11-19', skids:[], geracao:10.47, previsto:16.87, pr:62.1,  disp:94.0 },
+  { nome:'UFV Cerado Pedra I',    kwp:108,    inicio:'2023-10-09', skids:[], geracao:16.99, previsto:16.87, pr:100.7, disp:99.4 },
+  { nome:'UFV Cercado Pedra II',  kwp:105.45, inicio:'2022-11-14', skids:[], geracao:17.16, previsto:16.87, pr:78.0,  disp:98.1 },
+  { nome:'UFV Cercado Pedra III', kwp:108.48, inicio:'2022-11-14', skids:[], geracao:16.81, previsto:16.87, pr:99.7,  disp:99.2 },
+  { nome:'UFV Efizi',             kwp:102.83, inicio:'2024-11-22', skids:[], geracao:15.26, previsto:16.87, pr:90.5,  disp:97.8 },
+  { nome:'UFV Nacional I',        kwp:96,     inicio:'2025-10-12', skids:[], geracao:16.5,  previsto:16.24, pr:80,    disp:96.0 },
+  { nome:'UFV Nacional II',       kwp:96,     inicio:'2024-02-12', skids:[], geracao:14.8,  previsto:16.24, pr:78,    disp:88.0 },
+];
+const KWP_TOTAL = USINAS.reduce((s,u) => s + u.kwp, 0);
+const COLS = ['#0057B8','#00B4D8','#10B981','#F59E0B','#8B5CF6','#EF4444','#EC4899','#14B8A6'];
+
+/* Série mensal Jan-Jun/2026 — proporção real de sazonalidade (padrão EFIZI_GEN/EFIZI_IRR do seed-real.js) aplicada ao total real de Jan */
+const RATIO = [1.000, 0.853, 0.814, 0.677, 0.553, 0.581];
+const MO = ['Jan','Fev','Mar','Abr','Mai','Jun'];
+const GER_JAN = USINAS.reduce((s,u) => s + u.geracao, 0);
+const IRR_JAN = 207.7;
+const MESES = MO.map((m,i) => ({
+  mes: i+1,
+  gerReal: +(GER_JAN * RATIO[i]).toFixed(1),
+  gerPrev: +(GER_JAN * RATIO[i] * 0.95).toFixed(1),
+  irradReal: +(IRR_JAN * RATIO[i]).toFixed(1),
+  irradPrev: +(IRR_JAN * RATIO[i] * 1.03).toFixed(1),
+  pr: +(85 + (i % 3)).toFixed(1),
+  disp: +(97 - i*0.3).toFixed(1),
+}));
+
+/* ===================== Dashboard ===================== */
+function renderKpiGrid(){
+  const gerTotal = MESES.reduce((s,m)=>s+m.gerReal,0);
+  const gerPrevTotal = MESES.reduce((s,m)=>s+m.gerPrev,0);
+  const variacao = (((gerTotal/gerPrevTotal)-1)*100).toFixed(1);
+  const yieldMedio = MESES.reduce((s,m)=>s+(m.gerReal*1000/KWP_TOTAL),0)/MESES.length;
+  $('kpiGrid').innerHTML = `
+    <div class="kpi c-b"><div class="kpi-h"><div class="kpi-ic c-b"><i class="fas fa-bolt"></i></div>
+      <span class="kbdg ${variacao>=0?'up':'dn'}"><i class="fas fa-arrow-${variacao>=0?'up':'down'}"></i> ${variacao}%</span></div>
+      <div><span class="kval">${(gerTotal/1000).toFixed(3)}</span><span class="kunit">GWh</span></div>
+      <div class="klbl">Geração Total</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:3px">Prev: ${(gerPrevTotal/1000).toFixed(2)} GWh</div>
+      <div class="kbar"><div class="kbar-f" style="width:${Math.min((gerTotal/gerPrevTotal)*100,100)}%;background:${variacao>=0?'var(--ok)':'var(--er)'}"></div></div>
+    </div>
+    <div class="kpi c-c"><div class="kpi-h"><div class="kpi-ic c-c"><i class="fas fa-check-circle"></i></div>
+      <span class="kbdg up"><i class="fas fa-arrow-up"></i></span></div>
+      <div><span class="kval">96.8</span><span class="kunit">%</span></div>
+      <div class="klbl">Disponibilidade</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:3px">Meta: 96%</div>
+      <div class="kbar"><div class="kbar-f" style="width:96.8%"></div></div>
+    </div>
+    <div class="kpi c-g"><div class="kpi-h"><div class="kpi-ic c-g"><i class="fas fa-clock"></i></div>
+      <span class="kbdg up">Ativo</span></div>
+      <div><span class="kval" style="font-size:19px">4.320h</span></div>
+      <div class="klbl">Tempo de Operação</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:3px">Acumulado no período</div>
+    </div>
+    <div class="kpi c-a"><div class="kpi-h"><div class="kpi-ic c-a"><i class="fas fa-chart-pie"></i></div>
+      <span class="kbdg up"><i class="fas fa-arrow-up"></i></span></div>
+      <div><span class="kval">83.4</span><span class="kunit">%</span></div>
+      <div class="klbl">Performance Ratio</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:3px">Ref: 80% · Meta: 82%</div>
+      <div class="kbar"><div class="kbar-f" style="width:83.4%;background:var(--wn)"></div></div>
+    </div>
+    <div class="kpi c-b"><div class="kpi-h"><div class="kpi-ic c-b"><i class="fas fa-tachometer-alt"></i></div>
+      <span class="kbdg up">Yield</span></div>
+      <div><span class="kval">${yieldMedio.toFixed(1)}</span><span class="kunit">kWh/kWp</span></div>
+      <div class="klbl">Produtividade</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:3px">Específico do período</div>
+      <div class="kbar"><div class="kbar-f" style="width:${Math.min(yieldMedio/2.5,100)}%;background:var(--p)"></div></div>
+    </div>`;
+}
+function renderMonthTable(){
+  $('monthTblBody').innerHTML = MESES.map(m => {
+    const variacao = (((m.gerReal/m.gerPrev)-1)*100).toFixed(1);
+    return `<tr>
+      <td><strong>${MO[m.mes-1]}</strong></td>
+      <td><strong>${m.gerReal.toLocaleString('pt-BR')}</strong> MWh</td>
+      <td class="td2">${m.gerPrev.toLocaleString('pt-BR')} MWh</td>
+      <td><span class="pill ${variacao>=0?'p-ok':'p-er'}">${variacao>0?'+':''}${variacao}%</span></td>
+      <td class="td2">${m.irradReal} kWh/m²</td>
+      <td>${m.pr}%</td>
+      <td>${m.disp}%</td>
+    </tr>`;
+  }).join('');
+}
+function renderDashTable(){
+  $('dashTblBody').innerHTML = USINAS.map(u => {
+    const yieldU = +(u.geracao*1000/u.kwp).toFixed(1);
+    const ok = u.geracao >= u.previsto * 0.95;
+    return `<tr>
+      <td><b>${u.nome}</b></td>
+      <td class="td2">${u.kwp.toLocaleString('pt-BR')} kWp</td>
+      <td>${u.geracao.toLocaleString('pt-BR')} MWh</td>
+      <td class="td2">${u.previsto.toLocaleString('pt-BR')} MWh</td>
+      <td>${yieldU} kWh/kWp</td>
+      <td>${u.pr}%</td>
+      <td>${u.disp}%</td>
+      <td><span class="pill ${ok?'p-ok':'p-wn'}">${ok?'Dentro do previsto':'Abaixo do previsto'}</span></td>
+    </tr>`;
+  }).join('');
+}
+let mainChart, pieChart, irradChart, yieldChart;
+function initDashCharts(){
+  const corTexto = corVar('--t3'), corGrid = corVar('--bdl');
+  [mainChart,pieChart,irradChart,yieldChart].forEach(c => c?.destroy());
+  mainChart = new Chart($('mainChart'), {
+    type:'bar',
+    data:{ labels:MO, datasets:[
+      { label:'Realizado', data:MESES.map(m=>m.gerReal), backgroundColor:corVar('--p'), borderRadius:5 },
+      { label:'Previsto', type:'line', data:MESES.map(m=>m.gerPrev), borderColor:corVar('--ac'), tension:.35, pointRadius:0, borderWidth:2 },
+    ]},
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10 }, color:corTexto } } },
+      scales:{ y:{ grid:{ color:corGrid }, ticks:{ color:corTexto } }, x:{ grid:{ display:false }, ticks:{ color:corTexto } } } }
+  });
+  pieChart = new Chart($('pieChart'), {
+    type:'doughnut',
+    data:{ labels:USINAS.map(u=>u.nome), datasets:[{ data:USINAS.map(u=>u.geracao), backgroundColor:COLS }] },
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:9, font:{ size:9 }, color:corTexto } } } }
+  });
+  irradChart = new Chart($('irradChart'), {
+    type:'line',
+    data:{ labels:MO, datasets:[
+      { label:'Realizada', data:MESES.map(m=>m.irradReal), borderColor:corVar('--p'), backgroundColor:corVar('--p')+'22', fill:true, tension:.35, pointRadius:0, borderWidth:2 },
+      { label:'Prevista', data:MESES.map(m=>m.irradPrev), borderColor:corVar('--ac'), borderDash:[5,4], tension:.35, pointRadius:0, borderWidth:2 },
+    ]},
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10 }, color:corTexto } } },
+      scales:{ y:{ grid:{ color:corGrid }, ticks:{ color:corTexto } }, x:{ grid:{ display:false }, ticks:{ color:corTexto } } } }
+  });
+  yieldChart = new Chart($('yieldChart'), {
+    type:'bar',
+    data:{ labels:MO, datasets:[{ label:'Yield', data:MESES.map(m=>+(m.gerReal*1000/KWP_TOTAL).toFixed(1)), backgroundColor:corVar('--ok'), borderRadius:5 }] },
+    options:{ responsive:true, plugins:{ legend:{ display:false } },
+      scales:{ y:{ grid:{ color:corGrid }, ticks:{ color:corTexto } }, x:{ grid:{ display:false }, ticks:{ color:corTexto } } } }
+  });
+}
+
+/* ===================== Cadastro (u-card, igual v1.0) ===================== */
+function renderCadastro(){
+  $('cadList').innerHTML = USINAS.map(u => `
+    <div class="u-card">
+      <div class="u-card-h">
+        <div>
+          <div class="u-card-t">${u.nome}</div>
+          <div class="u-card-s">
+            <span><i class="fas fa-bolt"></i> ${u.kwp.toLocaleString('pt-BR')} kWp</span>
+            <span><i class="fas fa-calendar-alt"></i> ${new Date(u.inicio).toLocaleDateString('pt-BR')}</span>
+            ${u.skids.length ? `<span><i class="fas fa-layer-group"></i> ${u.skids.length} SKID(s)</span>` : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:7px">
+          <button class="btn btn-o btn-sm"><i class="fas fa-edit"></i> Editar</button>
+          <button class="btn btn-er btn-sm"><i class="fas fa-trash"></i> Excluir</button>
+        </div>
+      </div>
+      <div class="u-card-b">
+        <div class="u-stats">
+          <div class="u-stat"><label>Módulos</label><span>${u.skids.length ? 'N/D' : '216×550W'}</span></div>
+          <div class="u-stat"><label>Modelo Mód.</label><span style="font-size:12px">${u.skids.length ? 'N/D' : 'Canadian 550W'}</span></div>
+          <div class="u-stat"><label>Inversores</label><span>${u.skids.length ? u.skids.length+'×500kW' : '1×110kW'}</span></div>
+          <div class="u-stat"><label>Fabric. Inv.</label><span style="font-size:12px">${u.skids.length ? 'Sungrow' : 'Huawei'}</span></div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+/* ===================== Lançamento ===================== */
+function popularSelectsLancamento(){
+  $('lUsina').innerHTML = USINAS.map(u => `<option>${u.nome}</option>`).join('');
+  $('lFU').innerHTML += USINAS.map(u => `<option>${u.nome}</option>`).join('');
+  $('impUsina').innerHTML = USINAS.map(u => `<option>${u.nome}</option>`).join('');
+  $('relGerUsina').innerHTML = USINAS.map(u => `<option>${u.nome}</option>`).join('');
+  $('fUsina').innerHTML += USINAS.map(u => `<option>${u.nome}</option>`).join('');
+  $('fitFU').innerHTML += USINAS.map(u => `<option>${u.nome}</option>`).join('');
+  $('mFU').innerHTML += USINAS.map(u => `<option>${u.nome}</option>`).join('');
+  $('osFU').innerHTML += USINAS.map(u => `<option>${u.nome}</option>`).join('');
+  $('lUsina').addEventListener('change', () => {
+    const u = USINAS.find(x => x.nome === $('lUsina').value);
+    $('lSkid').innerHTML = '<option value="">Geral (sem SKID)</option>' + (u?.skids || []).map(s => `<option>${s}</option>`).join('');
+  });
+  $('lUsina').dispatchEvent(new Event('change'));
+}
+function renderLancHist(){
+  $('lancHist').innerHTML = USINAS.map(u => `<tr>
+    <td><b>${u.nome}</b></td>
+    <td class="td2">${u.skids[0] || '—'}</td>
+    <td class="td2">01/2026</td>
+    <td>${Math.round(u.geracao*1000).toLocaleString('pt-BR')}</td>
+    <td>${IRR_JAN}</td>
+    <td>${u.pr}%</td>
+    <td>${u.disp}%</td>
+    <td class="td2">—</td>
+    <td><button class="bico"><i class="fas fa-pen"></i></button> <button class="bico er"><i class="fas fa-trash"></i></button></td>
+  </tr>`).join('');
+}
+
+/* ===================== Manutenção: Kanban + OS ===================== */
+$('tabKanban').addEventListener('click', () => { $('tabKanban').classList.add('active'); $('tabOS').classList.remove('active'); $('viewKanban').style.display='block'; $('viewOS').style.display='none'; });
+$('tabOS').addEventListener('click', () => { $('tabOS').classList.add('active'); $('tabKanban').classList.remove('active'); $('viewOS').style.display='block'; $('viewKanban').style.display='none'; });
+$('btnNovaManut').addEventListener('click', () => { $('tabOS').click(); });
+
+function renderKanban(){
+  const cards = {
+    plan: [{ t:'Limpeza de módulos', u:'UFV Central', tipo:'prev' }, { t:'Inspeção termográfica', u:'UFV Partinga-BA', tipo:'pred' }],
+    exec: [{ t:'Troca de conector CC', u:'UFV Pedro Canario II', tipo:'corr' }],
+    ok:   [{ t:'Manutenção trimestral QGBT', u:'UFV Sítio do Pescoço', tipo:'prev' }, { t:'Recalibração solarimétrica', u:'UFV Efizi', tipo:'prev' }],
+  };
+  const TIPO_LBL = { prev:'Preventiva', corr:'Corretiva', pred:'Preditiva', plan:'Planejada' };
+  function col(titulo, cor, lista){
+    return `<div class="kb-col">
+      <div class="kb-col-h"><span class="kb-col-t"><i class="fas fa-circle" style="color:${cor};font-size:8px"></i> ${titulo}</span><span class="pill p-gy">${lista.length}</span></div>
+      <div style="padding:10px;display:flex;flex-direction:column;gap:9px">
+        ${lista.map(c => `<div class="tcard" style="padding:11px;cursor:grab">
+          <div style="font-size:12.5px;font-weight:700;margin-bottom:4px">${c.t}</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:6px">${c.u}</div>
+          <span class="pill p-bl" style="font-size:9.5px">${TIPO_LBL[c.tipo]}</span>
+        </div>`).join('') || '<div style="text-align:center;color:var(--t3);font-size:12px;padding:16px">Vazio</div>'}
+      </div>
+    </div>`;
+  }
+  $('kanbanBoard').innerHTML =
+    col('Planejadas', 'var(--t3)', cards.plan) +
+    col('Em Execução', 'var(--wn)', cards.exec) +
+    col('Concluídas', 'var(--ok)', cards.ok);
+}
+
+const mockOS = [
+  { numero:'OS-2188-2025', planta:'UFV Pedro Canario II', data:'30/06/2026', resp:'Salomão Otoni', status:'falhou', label:'Com falhas' },
+  { numero:'OS-2201-2025', planta:'UFV Central',          data:'02/07/2026', resp:'Salomão Otoni', status:'ok',     label:'Sem pendências' },
+  { numero:'OS-2214-2026', planta:'UFV Nacional II',      data:'05/07/2026', resp:'Equipe de Campo', status:'pendente', label:'Aguardando execução' },
+];
+function renderOS(){
+  $('osGrid').innerHTML = mockOS.map(os => `
+    <div class="os-card">
+      <div class="os-card-top"><div class="os-num">${os.numero}</div><div class="os-pill ${os.status}">${os.label}</div></div>
+      <div class="os-card-planta">${os.planta}</div>
+      <div class="os-card-meta"><span><i class="fas fa-calendar" style="width:14px;color:var(--t3)"></i> ${os.data}</span><span><i class="fas fa-user-hard-hat" style="width:14px;color:var(--t3)"></i> ${os.resp}</span></div>
+    </div>`).join('');
+}
+
+/* ===================== Fit Energia ===================== */
+function renderFit(){
+  const fit = [
+    { periodo:'01/2026', usina:'UFV Efizi',            skid:'—', dist:'CELESC', fit:15500, medida:15258, valor:9020,  tarifa:0.591 },
+    { periodo:'01/2026', usina:'UFV Cercado Pedra II',  skid:'—', dist:'CELESC', fit:17300, medida:17164, valor:10160, tarifa:0.592 },
+    { periodo:'01/2026', usina:'UFV Bom Futuro',        skid:'—', dist:'CELESC', fit:10700, medida:10474, valor:6210,  tarifa:0.593 },
+  ];
+  $('fitKpi').innerHTML = `
+    <div class="kpi c-b"><div class="kpi-h"><div class="kpi-ic c-b"><i class="fas fa-bolt"></i></div></div><div><span class="kval">43.500</span><span class="kunit">kWh</span></div><div class="klbl">Geração Fit (relatório)</div></div>
+    <div class="kpi c-c"><div class="kpi-h"><div class="kpi-ic c-c"><i class="fas fa-solar-panel"></i></div></div><div><span class="kval">42.896</span><span class="kunit">kWh</span></div><div class="klbl">Geração medida (usina)</div></div>
+    <div class="kpi c-g"><div class="kpi-h"><div class="kpi-ic c-g"><i class="fas fa-sack-dollar"></i></div></div><div><span class="kval">25.390</span><span class="kunit">R$</span></div><div class="klbl">Valor faturado (Financeiro)</div></div>
+    <div class="kpi c-a"><div class="kpi-h"><div class="kpi-ic c-a"><i class="fas fa-percent"></i></div></div><div><span class="kval">0,592</span><span class="kunit">R$/kWh</span></div><div class="klbl">Tarifa média</div></div>`;
+  $('fitTbl').innerHTML = fit.map(f => {
+    const diff = f.fit - f.medida;
+    return `<tr>
+      <td class="td2">${f.periodo}</td><td><b>${f.usina}</b></td><td class="td2">${f.skid}</td><td class="td2">${f.dist}</td>
+      <td>${f.fit.toLocaleString('pt-BR')}</td><td class="td2">${f.medida.toLocaleString('pt-BR')}</td>
+      <td><span class="pill ${Math.abs(diff)<500?'p-ok':'p-wn'}">${diff>0?'+':''}${diff.toLocaleString('pt-BR')}</span></td>
+      <td>R$ ${f.valor.toLocaleString('pt-BR')}</td><td class="td2">R$ ${f.tarifa.toFixed(3)}</td>
+      <td><button class="bico"><i class="fas fa-file-pdf"></i></button></td>
+      <td><button class="bico er"><i class="fas fa-trash"></i></button></td>
+    </tr>`;
+  }).join('');
+  let fitChart;
+  fitChart = new Chart($('fitChart'), {
+    type:'bar',
+    data:{ labels:fit.map(f=>f.usina), datasets:[
+      { label:'Geração Usina', data:fit.map(f=>f.medida), backgroundColor:corVar('--p'), borderRadius:5 },
+      { label:'Relatório Fit', data:fit.map(f=>f.fit), backgroundColor:corVar('--ac'), borderRadius:5 },
+    ]},
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ color:corVar('--t3') } } }, scales:{ y:{ grid:{ color:corVar('--bdl') }, ticks:{ color:corVar('--t3') } } } }
+  });
+}
+
+/* ===================== Comparativo ===================== */
+let compSelecionadas = USINAS.slice(0,3).map(u=>u.nome);
+let compChart;
+function renderCompChips(){
+  $('compChips').innerHTML = USINAS.map((u,i) => {
+    const sel = compSelecionadas.includes(u.nome);
+    return `<div data-comp="${u.nome}" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:17px;border:2px solid ${sel?'var(--p)':'var(--bd)'};background:${sel?'var(--pxl)':'var(--card)'};cursor:pointer;font-size:13px;font-weight:600;color:${sel?'var(--p)':'var(--t2)'};transition:all .2s">
+      <span style="width:7px;height:7px;border-radius:50%;background:${COLS[i%COLS.length]}"></span>${u.nome}
+    </div>`;
+  }).join('');
+  document.querySelectorAll('[data-comp]').forEach(c => c.addEventListener('click', () => {
+    const nome = c.dataset.comp;
+    compSelecionadas = compSelecionadas.includes(nome) ? compSelecionadas.filter(n=>n!==nome) : [...compSelecionadas, nome];
+    renderCompChips(); renderCompGrid(); renderCompChart();
+  }));
+}
+function renderCompGrid(){
+  $('compGrid').innerHTML = compSelecionadas.map(nome => {
+    const u = USINAS.find(x=>x.nome===nome);
+    const i = USINAS.indexOf(u);
+    const diff = (((u.geracao/u.previsto)-1)*100).toFixed(1);
+    return `<div class="tcard" style="padding:15px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:11px;display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:${COLS[i%COLS.length]}"></span>${u.nome}</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span class="td2">Geração</span><b>${u.geracao.toLocaleString('pt-BR')} MWh</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span class="td2">vs Previsto</span><span class="pill ${diff>=0?'p-ok':'p-er'}">${diff>0?'+':''}${diff}%</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span class="td2">PR</span><b>${u.pr}%</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px"><span class="td2">Yield</span><b>${(u.geracao*1000/u.kwp).toFixed(1)} kWh/kWp</b></div>
+    </div>`;
+  }).join('');
+}
+function renderCompChart(){
+  compChart?.destroy();
+  compChart = new Chart($('compChart'), {
+    type:'line',
+    data:{ labels:MO, datasets:compSelecionadas.map((nome,idx) => {
+      const u = USINAS.find(x=>x.nome===nome);
+      const i = USINAS.indexOf(u);
+      return { label:u.nome, data:MESES.map(m=>+(u.geracao*RATIO[m.mes-1]).toFixed(1)), borderColor:COLS[i%COLS.length], backgroundColor:COLS[i%COLS.length], tension:.35, pointRadius:2, borderWidth:2 };
+    })},
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ color:corVar('--t3') } } }, scales:{ y:{ grid:{ color:corVar('--bdl') }, ticks:{ color:corVar('--t3') } }, x:{ grid:{ display:false }, ticks:{ color:corVar('--t3') } } } }
+  });
+}
+
+/* ===================== Relatório ===================== */
+document.querySelectorAll('[data-reltab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-reltab]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.reltabcontent').forEach(c=>c.style.display='none');
+    $(btn.dataset.reltab).style.display='block';
+  });
+});
+$('relGerUsina').addEventListener('change', renderRelGerPreview);
+function renderRelGerPreview(){
+  const u = USINAS.find(x=>x.nome===$('relGerUsina').value) || USINAS[0];
+  $('relGerPreview').innerHTML = `
+    <table><thead><tr><th>Indicador</th><th>Realizado</th><th>Previsto</th></tr></thead>
+    <tbody>
+      <tr><td>Geração</td><td><b>${u.geracao.toLocaleString('pt-BR')} MWh</b></td><td class="td2">${u.previsto.toLocaleString('pt-BR')} MWh</td></tr>
+      <tr><td>PR</td><td><b>${u.pr}%</b></td><td class="td2">80%</td></tr>
+      <tr><td>Disponibilidade</td><td><b>${u.disp}%</b></td><td class="td2">96%</td></tr>
+    </tbody></table>`;
+}
+
+/* ===================== toggle de tema ===================== */
+(function(){
+  const root = document.documentElement;
+  const btn = $('themeToggle');
+  function isLight(){ return root.getAttribute('data-theme') === 'light'; }
+  function updateIcon(){ btn.innerHTML = isLight() ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>'; }
+  updateIcon();
+  btn.addEventListener('click', () => {
+    if (isLight()) { root.removeAttribute('data-theme'); localStorage.setItem('oasis-theme','dark'); }
+    else { root.setAttribute('data-theme','light'); localStorage.setItem('oasis-theme','light'); }
+    updateIcon();
+    initDashCharts(); renderFit(); renderCompChart();
+  });
+})();
+
+/* ===================== init ===================== */
+popularSelectsLancamento();
+renderKpiGrid();
+renderMonthTable();
+renderDashTable();
+initDashCharts();
+renderCadastro();
+renderLancHist();
+renderKanban();
+renderOS();
+renderFit();
+renderCompChips();
+renderCompGrid();
+renderCompChart();
+renderRelGerPreview();
+</script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OASIS SOLAR — v2.0 Mockup: Login</title>
+<script>(function(){try{if(localStorage.getItem('oasis-theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="theme.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--t1);min-height:100vh;}
+
+.proto-banner{background:#1a1a1a;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:7px;letter-spacing:.3px;}
+.proto-banner b{color:#FFD166;}
+
+.shell{min-height:calc(100vh - 34px);display:flex;}
+
+/* ---- Painel de marca (esquerda) ---- */
+.brand-panel{flex:1.1;background:linear-gradient(155deg,var(--sb) 0%,var(--pd) 55%,var(--p) 100%);position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:48px 52px;color:#fff;}
+.brand-panel::before{content:'';position:absolute;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(125,187,255,.28),transparent 70%);top:-160px;right:-160px;}
+.brand-panel::after{content:'';position:absolute;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,rgba(255,214,0,.10),transparent 70%);bottom:-120px;left:-80px;}
+.brand-top{position:relative;z-index:1;display:flex;align-items:center;gap:12px;}
+.brand-top .icon{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:20px;color:#FFD600;backdrop-filter:blur(6px);}
+.brand-top .name{font-family:'Inter',sans-serif;font-size:19px;font-weight:700;letter-spacing:.5px;}
+.brand-top .sub{font-size:9.5px;color:rgba(255,255,255,.5);letter-spacing:2.5px;text-transform:uppercase;margin-top:1px;}
+
+.brand-mid{position:relative;z-index:1;max-width:420px;}
+.brand-mid h1{font-family:'Inter',sans-serif;font-size:34px;font-weight:700;line-height:1.2;margin-bottom:14px;}
+.brand-mid p{font-size:14px;color:rgba(255,255,255,.75);line-height:1.6;}
+
+.brand-modules{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:10px;margin-top:26px;}
+.bm-chip{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:7px 14px;font-size:11.5px;font-weight:600;backdrop-filter:blur(6px);}
+.bm-chip i{color:var(--ac);font-size:12px;}
+
+.brand-foot{position:relative;z-index:1;font-size:10.5px;color:rgba(255,255,255,.4);}
+
+/* ---- Painel de formulário (direita) ---- */
+.form-panel{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px;background:var(--bg);position:relative;}
+.form-box{width:100%;max-width:380px;}
+.form-box h2{font-family:'Inter',sans-serif;font-size:24px;font-weight:700;margin-bottom:5px;}
+.form-box .fsub{font-size:13px;color:var(--t2);margin-bottom:28px;}
+
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px;}
+.field .input-wrap{position:relative;}
+.field .input-wrap i{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:13px;}
+.field input{width:100%;padding:11px 14px 11px 38px;border:1px solid var(--bd);border-radius:var(--r2);font-family:inherit;font-size:13.5px;background:var(--card);outline:none;transition:border-color .2s,box-shadow .2s;}
+.field input:focus{border-color:var(--p);box-shadow:0 0 0 3px rgba(0,87,184,.1);}
+.field .toggle-eye{position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--t3);cursor:pointer;font-size:13px;}
+
+.row-between{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;}
+.remember{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);}
+.link-btn{background:none;border:none;font-family:inherit;font-size:12px;font-weight:700;color:var(--p);cursor:pointer;padding:0;}
+.link-btn:hover{text-decoration:underline;}
+
+.btn-submit{width:100%;padding:12px;border:none;border-radius:var(--r2);background:var(--p);color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-submit:hover{background:#004FA3;box-shadow:var(--s2);transform:translateY(-1px);}
+
+.form-foot{margin-top:22px;text-align:center;font-size:11.5px;color:var(--t3);}
+
+.alert{display:flex;gap:9px;align-items:flex-start;background:var(--acl);border:1px solid #B8E9F5;border-radius:var(--r2);padding:11px 13px;font-size:12px;color:#0A6E85;margin-bottom:18px;line-height:1.5;}
+.alert i{margin-top:2px;}
+.alert.ok{background:var(--okl);border-color:#A7F3D0;color:#047857;}
+
+#viewRecover{display:none;}
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--p);cursor:pointer;margin-bottom:18px;}
+.back-link:hover{text-decoration:underline;}
+
+@media (max-width:860px){
+  .shell{flex-direction:column;}
+  .brand-panel{padding:32px 26px;}
+  .brand-mid h1{font-size:26px;}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Painel de marca -->
+  <div class="brand-panel">
+    <div class="brand-top">
+      <div class="icon"><i class="fas fa-sun"></i></div>
+      <div>
+        <div class="name">OASIS SOLAR</div>
+        <div class="sub">Sistema de Gestão</div>
+      </div>
+    </div>
+    <div class="brand-mid">
+      <h1>Toda a operação da sua usina, em um só lugar.</h1>
+      <p>Monitoramento em tempo real, geração, financeiro e obras — reunidos numa plataforma única para gestão de ativos fotovoltaicos.</p>
+      <div class="brand-modules">
+        <div class="bm-chip"><i class="fas fa-satellite-dish"></i> Monitoramento</div>
+        <div class="bm-chip"><i class="fas fa-chart-line"></i> Relatório de Geração</div>
+        <div class="bm-chip"><i class="fas fa-sack-dollar"></i> Financeiro</div>
+        <div class="bm-chip"><i class="fas fa-helmet-safety"></i> Obras</div>
+      </div>
+    </div>
+    <div class="brand-foot">© 2026 Oasis Solar — v2.0</div>
+  </div>
+
+  <!-- Painel de formulário -->
+  <div class="form-panel">
+    <button class="theme-toggle" id="themeToggle" title="Alternar tema" style="position:absolute;top:22px;right:22px;"><i class="fas fa-sun"></i></button>
+    <div class="form-box">
+
+      <!-- ===== VIEW: LOGIN ===== -->
+      <div id="viewLogin">
+        <h2>Bem-vindo de volta</h2>
+        <div class="fsub">Entre com sua conta para acessar o sistema.</div>
+
+        <form id="formLogin">
+          <div class="field">
+            <label>E-mail</label>
+            <div class="input-wrap">
+              <i class="fas fa-envelope"></i>
+              <input type="email" id="loginEmail" placeholder="seu@email.com" required>
+            </div>
+          </div>
+          <div class="field">
+            <label>Senha</label>
+            <div class="input-wrap">
+              <i class="fas fa-lock"></i>
+              <input type="password" id="loginSenha" placeholder="••••••••" required>
+              <i class="fas fa-eye toggle-eye" id="toggleEye"></i>
+            </div>
+          </div>
+          <div class="row-between">
+            <label class="remember"><input type="checkbox" checked> Manter conectado</label>
+            <button type="button" class="link-btn" id="btnEsqueceu">Esqueceu a senha?</button>
+          </div>
+          <button type="submit" class="btn-submit"><i class="fas fa-arrow-right-to-bracket"></i> Entrar</button>
+        </form>
+
+        <div class="form-foot">Precisa de acesso? Fale com o administrador da sua conta.</div>
+      </div>
+
+      <!-- ===== VIEW: ESQUECEU A SENHA ===== -->
+      <div id="viewRecover">
+        <div class="back-link" id="btnVoltarLogin"><i class="fas fa-arrow-left"></i> Voltar para o login</div>
+        <h2>Redefinir senha</h2>
+        <div class="fsub">Informe seu e-mail cadastrado — enviaremos um link para você criar uma nova senha.</div>
+
+        <div id="recoverAlertBox"></div>
+
+        <form id="formRecover">
+          <div class="field">
+            <label>E-mail</label>
+            <div class="input-wrap">
+              <i class="fas fa-envelope"></i>
+              <input type="email" id="recoverEmail" placeholder="seu@email.com" required>
+            </div>
+          </div>
+          <button type="submit" class="btn-submit"><i class="fas fa-paper-plane"></i> Enviar instruções</button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+/* alternar visibilidade da senha */
+$('toggleEye').addEventListener('click', () => {
+  const inp = $('loginSenha');
+  const isPass = inp.type === 'password';
+  inp.type = isPass ? 'text' : 'password';
+  $('toggleEye').classList.toggle('fa-eye');
+  $('toggleEye').classList.toggle('fa-eye-slash');
+});
+
+/* alternar entre login e recuperação */
+function irParaRecover(){
+  $('viewLogin').style.display = 'none';
+  $('viewRecover').style.display = 'block';
+  $('recoverAlertBox').innerHTML = '';
+  $('formRecover').style.display = 'block';
+}
+function irParaLogin(){
+  $('viewRecover').style.display = 'none';
+  $('viewLogin').style.display = 'block';
+}
+$('btnEsqueceu').addEventListener('click', irParaRecover);
+$('btnVoltarLogin').addEventListener('click', irParaLogin);
+
+/* submit login — mock: qualquer credencial preenchida navega pro hub */
+$('formLogin').addEventListener('submit', (e) => {
+  e.preventDefault();
+  window.location.href = 'hub.html';
+});
+
+/* submit recuperação — mock: mostra confirmação, sem enviar nada de verdade */
+$('formRecover').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const email = $('recoverEmail').value;
+  $('recoverAlertBox').innerHTML = `
+    <div class="alert ok">
+      <i class="fas fa-circle-check"></i>
+      <div>Se <b>${email}</b> estiver cadastrado, você vai receber um e-mail com o link para redefinir a senha em instantes.</div>
+    </div>`;
+  $('formRecover').style.display = 'none';
+});
+
+/* toggle de tema (dark/light), persistido em localStorage */
+(function(){
+  const root = document.documentElement;
+  const btn = $('themeToggle');
+  function isLight(){ return root.getAttribute('data-theme') === 'light'; }
+  function updateIcon(){ btn.innerHTML = isLight() ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>'; }
+  updateIcon();
+  btn.addEventListener('click', () => {
+    if (isLight()) { root.removeAttribute('data-theme'); localStorage.setItem('oasis-theme','dark'); }
+    else { root.setAttribute('data-theme','light'); localStorage.setItem('oasis-theme','light'); }
+    updateIcon();
+  });
+})();
+</script>
+</body>
+</html>

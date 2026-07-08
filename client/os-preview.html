@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OASIS SOLAR — Preview: Ordens de Serviço (OS)</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* ====== Este arquivo é um PROTÓTIPO standalone, sem backend, dados fictícios ====== */
+  body{background:var(--bg);}
+  .proto-banner{background:#1a1a1a;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:7px;letter-spacing:.3px;}
+  .proto-banner b{color:#FFD166;}
+  .proto-wrap{max-width:1180px;margin:0 auto;padding:22px 24px 60px;}
+
+  /* ---- Cabeçalho da página (mimetiza a sec-bar do app) ---- */
+  .sec-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+  .sec-title{font-size:20px;font-weight:800;}
+  .sec-desc{font-size:12.5px;color:var(--t2);margin-top:2px;}
+
+  /* ---- Lista de OS ---- */
+  .os-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:16px;}
+  .os-card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r3);box-shadow:var(--s1);padding:15px;cursor:pointer;transition:all .2s;}
+  .os-card:hover{box-shadow:var(--s2);border-color:var(--p);transform:translateY(-1px);}
+  .os-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+  .os-num{font-size:13px;font-weight:800;color:var(--pd);}
+  .os-pill{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;}
+  .os-pill.ok{background:var(--okl);color:var(--ok);}
+  .os-pill.alerta{background:var(--wnl);color:var(--wn);}
+  .os-pill.falhou{background:var(--erl);color:var(--er);}
+  .os-card-planta{font-size:14px;font-weight:700;margin-bottom:3px;}
+  .os-card-meta{font-size:11.5px;color:var(--t2);display:flex;flex-direction:column;gap:3px;margin-bottom:10px;}
+  .os-card-meta span i{width:14px;color:var(--t3);}
+  .os-counts{display:flex;gap:6px;flex-wrap:wrap;}
+  .os-count-chip{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;display:flex;align-items:center;gap:4px;}
+  .os-count-chip.ap{background:var(--okl);color:var(--ok);}
+  .os-count-chip.al{background:var(--wnl);color:var(--wn);}
+  .os-count-chip.fa{background:var(--erl);color:var(--er);}
+
+  /* ---- Detalhe / relatório da OS ---- */
+  .os-detail{background:var(--card);border:1px solid var(--bd);border-radius:var(--r3);box-shadow:var(--s1);padding:24px;}
+  .os-back{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--p);cursor:pointer;margin-bottom:14px;}
+  .os-back:hover{text-decoration:underline;}
+
+  .rep-header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--t1);padding-bottom:10px;margin-bottom:12px;}
+  .rep-brand{display:flex;align-items:center;gap:10px;}
+  .rep-brand .icon{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,var(--p),var(--pl));display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;}
+  .rep-brand-name{font-weight:800;font-size:15px;}
+  .rep-brand-sub{font-size:10.5px;color:var(--t3);}
+  .rep-meta{text-align:right;font-size:12px;color:var(--t2);}
+  .rep-meta .os-number{color:var(--er);font-weight:800;}
+
+  .meta-table{width:100%;border-collapse:collapse;margin-bottom:16px;}
+  .meta-table td{padding:6px 8px;vertical-align:top;border-bottom:1px solid var(--bdl);font-size:12.5px;}
+  .meta-table .label{font-weight:700;width:20%;color:var(--t2);}
+
+  .ativo-block{border:1px solid var(--bd);border-radius:var(--r2);margin-bottom:16px;overflow:hidden;}
+  .section-title{background:var(--sb);color:#fff;font-weight:700;font-size:11.5px;padding:7px 12px;text-transform:uppercase;letter-spacing:.5px;}
+  .ativo-fields{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--bdl);}
+  .ativo-fields .field{padding:7px 12px;border-bottom:1px solid var(--bdl);font-size:11.5px;}
+  .field .k{font-weight:700;color:var(--t2);}
+
+  .tarefa-header{background:var(--bg);padding:9px 12px;font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;}
+  .tarefa-header .k{font-weight:700;color:var(--t2);}
+
+  table.subtasks{width:100%;border-collapse:collapse;margin-top:2px;}
+  table.subtasks th{background:var(--pd);color:#fff;text-align:left;padding:7px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;}
+  table.subtasks td{padding:8px 10px;border-bottom:1px solid var(--bdl);font-size:12px;vertical-align:top;}
+  .grupo-col{width:16%;font-weight:700;color:var(--t2);}
+  .status-col{width:15%;white-space:nowrap;}
+
+  .status-badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;color:#fff;}
+  .status-aprovou{background:var(--ok);}
+  .status-alerta{background:var(--wn);}
+  .status-falhou{background:var(--er);}
+
+  .anexos-title{background:var(--t1);color:#fff;font-weight:700;padding:7px 12px;font-size:11px;}
+  .anexos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;padding:12px;}
+  .anexo-card{border:1px solid var(--bd);border-radius:var(--r1);overflow:hidden;}
+  .anexo-img-wrap{height:120px;background:linear-gradient(135deg,var(--pxl),var(--acl));display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:26px;}
+  .anexo-desc{padding:8px 9px;font-size:11px;}
+  .anexo-caption{font-size:9.5px;color:var(--t3);margin-top:3px;}
+
+  .signatures{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:28px;text-align:center;}
+  .signatures .line{border-top:1px solid var(--t1);margin-top:30px;padding-top:5px;font-size:11px;color:var(--t2);}
+  .signatures .name{font-size:12px;font-weight:600;margin-bottom:2px;}
+
+  .footer-note{text-align:center;font-size:9.5px;color:var(--t3);margin-top:10px;}
+
+  .detail-actions{display:flex;gap:8px;margin-bottom:14px;}
+
+  #viewList.hidden,#viewDetail.hidden{display:none;}
+
+  @media print{
+    .proto-banner,.sb,header,.detail-actions,.os-back,#viewList{display:none !important;}
+    body{background:#fff;}
+    .proto-wrap{max-width:none;padding:0;}
+    .os-detail{box-shadow:none;border:none;padding:0;}
+    @page{size:A4;margin:14mm 12mm;}
+  }
+</style>
+</head>
+<body>
+
+<div class="proto-banner"><i class="fas fa-flask"></i> PROTÓTIPO LOCAL — dados fictícios, sem conexão com o backend · <b>aba OS dentro de Manutenção</b></div>
+
+<div class="proto-wrap">
+
+  <!-- Cabeçalho mimetizando a seção Manutenção do app -->
+  <div class="sec-bar">
+    <div>
+      <div class="sec-title">Manutenção</div>
+      <div class="sec-desc">Kanban de manutenções + Ordens de Serviço (OS) detalhadas</div>
+    </div>
+    <button class="btn btn-p" disabled title="Protótipo — sem criação real"><i class="fas fa-plus"></i> Nova OS</button>
+  </div>
+
+  <!-- Tabbar: Kanban (existente) | OS (nova aba) -->
+  <div class="tabbar">
+    <button class="tabbtn" id="tabKanban"><i class="fas fa-columns"></i> Kanban</button>
+    <button class="tabbtn active" id="tabOS"><i class="fas fa-clipboard-check"></i> Ordens de Serviço (OS)</button>
+  </div>
+
+  <div id="kanbanNote" class="tcard" style="display:none;padding:30px;text-align:center;color:var(--t3);font-size:13px;">
+    <i class="fas fa-columns" style="font-size:22px;margin-bottom:8px;display:block;color:var(--t3)"></i>
+    O Kanban de manutenções (Planejadas / Em Execução / Concluídas) continua exatamente como está hoje no app real.<br>Este protótipo foca apenas na nova aba <b>OS</b>.
+  </div>
+
+  <!-- ===================== LISTA DE OS ===================== -->
+  <div id="viewList">
+    <div class="fbar">
+      <span class="flbl">Filtros</span>
+      <select class="fsel" id="fU"><option value="">Todas as usinas</option></select>
+      <select class="fsel" id="fS">
+        <option value="">Todos os status</option>
+        <option value="ok">Sem pendências</option>
+        <option value="alerta">Com alertas</option>
+        <option value="falhou">Com falhas</option>
+      </select>
+      <select class="fsel" id="fA"></select>
+    </div>
+    <div class="os-grid" id="osGrid"></div>
+  </div>
+
+  <!-- ===================== DETALHE / RELATÓRIO DA OS ===================== -->
+  <div id="viewDetail" class="hidden">
+    <div class="os-back" id="btnBack"><i class="fas fa-arrow-left"></i> Voltar para lista de OS</div>
+    <div class="detail-actions">
+      <button class="btn btn-o" id="btnPrint"><i class="fas fa-print"></i> Imprimir / Exportar PDF</button>
+    </div>
+
+    <div class="os-detail" id="repRoot"></div>
+  </div>
+
+</div>
+
+<script>
+/* =====================================================================
+   DADOS MOCKADOS — segue o schema os-schema.json (anexo do usuário)
+   OS -> ativos[] -> tarefas[] -> subtarefas[] (checklist) -> anexos[]
+   ===================================================================== */
+const STATUS_LABEL = { aprovou:'Aprovou', alerta:'Alerta', falhou:'Falhou' };
+
+const mockOS = [
+  {
+    numero: 'OS-2188-2025',
+    data_emissao: '2026-06-30',
+    avaliacao: null,
+    gerado_por: 'Ana Carolina',
+    responsavel: 'Salomão Otoni',
+    duracao_estimada_total: '08:00:00',
+    notas: null,
+    empresa: { nome: 'Oasis Solar' },
+    planta: { nome: 'Pedro Canário 2', cliente: 'FORTLEV', uf: 'ES' },
+    ativos: [
+      {
+        codigo: 'FL-PCA2-MV4-INV01', descricao: 'INVERSOR 01', tipo: 'INVERSOR',
+        localizacao: 'FORTLEV / PEDRO CANÁRIO 2 (ES) / MV 04', prioridade: 'Média',
+        classificacao_1: null, classificacao_2: null, centro_custo: null, codigo_barras: null,
+        tarefas: [{
+          descricao: 'MANUTENÇÃO PROGRAMADA MENSAL (INVERSORES)',
+          data_agendada: '2026-06-30', data_hora_inicio: '2026-06-30T11:38', data_hora_fim: '2026-06-30T11:43',
+          tipo_tarefa: 'Preventiva mensal', prioridade: 'Média', trigger: 'Data Cada 1 Meses',
+          duracao_estimada: '00:30:00', tempo_execucao: '00:04:18', tempo_parada_ativo: '00:00:00',
+          classificacao_1: 'Evento planejado.', classificacao_2: null,
+          subtarefas: [
+            { ordem:1, grupo:'Inversor', descricao:'Realizar inspeção visual considerando o seguinte item: Falta de placa de identificação e marcação dos inversores.', tipo_resposta:'status', status:'aprovou', observacao:null,
+              anexos:[{ url:'', legenda:'Inversor 1', timestamp:'2026-06-30T10:41', geolocalizacao:{endereco:'ES-209 - Camata, Pedro Canário - ES'}, selo_nota:'Nota: PC 2' }] },
+            { ordem:2, grupo:'Inversor', descricao:'Realizar inspeção visual considerando o seguinte item: Estado geral externo dos inversores, considerando pontos de corrosão.', tipo_resposta:'status', status:'alerta', observacao:'Identificado início de oxidação nos conectores AC.', anexos:[] },
+            { ordem:3, grupo:'Inversor', descricao:'Verificar aperto e integridade dos conectores de entrada CC.', tipo_resposta:'status', status:'aprovou', observacao:null, anexos:[] },
+            { ordem:4, grupo:'Inversor', descricao:'Verificar ventilação e limpeza dos filtros de ar.', tipo_resposta:'status', status:'falhou', observacao:'Filtro saturado, necessária substituição na próxima visita.', anexos:[] },
+            { ordem:8, grupo:'Inversor', descricao:'Medir a temperatura em condições reais de operação.', tipo_resposta:'medicao', status:null, valor_medido:'38.4 °C', observacao:null, anexos:[] }
+          ]
+        }]
+      },
+      {
+        codigo: 'FL-PCA2-MV4-TRF01', descricao: 'TRANSFORMADOR MV04', tipo: 'TRANSFORMADOR',
+        localizacao: 'FORTLEV / PEDRO CANÁRIO 2 (ES) / MV 04', prioridade: 'Alta',
+        classificacao_1: null, classificacao_2: null, centro_custo: null, codigo_barras: null,
+        tarefas: [{
+          descricao: 'INSPEÇÃO TERMOGRÁFICA MENSAL', data_agendada: '2026-06-30', data_hora_inicio: '2026-06-30T12:00', data_hora_fim: '2026-06-30T12:20',
+          tipo_tarefa: 'Preventiva mensal', prioridade: 'Alta', trigger: 'Data Cada 1 Meses',
+          duracao_estimada: '00:20:00', tempo_execucao: '00:20:00', tempo_parada_ativo: '00:00:00',
+          classificacao_1: 'Evento planejado.', classificacao_2: null,
+          subtarefas: [
+            { ordem:1, grupo:'Transformador', descricao:'Verificar nível de óleo isolante.', tipo_resposta:'status', status:'aprovou', observacao:null, anexos:[] },
+            { ordem:2, grupo:'Transformador', descricao:'Registrar temperatura dos enrolamentos via termovisor.', tipo_resposta:'foto', status:null, observacao:'Sem pontos quentes identificados.',
+              anexos:[{ url:'', legenda:'Termografia TRF01', timestamp:'2026-06-30T12:15', geolocalizacao:{endereco:'ES-209 - Camata, Pedro Canário - ES'}, selo_nota:'Nota: PC 2' }] }
+          ]
+        }]
+      }
+    ],
+    assinaturas: { aceite_por: 'Ana Carolina', validado_por: 'Salomão Otoni', realizado_por: 'Equipe de campo O&M' }
+  },
+  {
+    numero: 'OS-2201-2025',
+    data_emissao: '2026-07-02',
+    avaliacao: null,
+    gerado_por: 'Ana Carolina',
+    responsavel: 'Salomão Otoni',
+    duracao_estimada_total: '04:00:00',
+    notas: 'Visita adiada em 1 dia por chuva.',
+    empresa: { nome: 'Oasis Solar' },
+    planta: { nome: 'Junco II', cliente: 'FORTLEV', uf: 'BA' },
+    ativos: [{
+      codigo: 'FL-JC2-QGBT01', descricao: 'QUADRO GERAL DE BAIXA TENSÃO 01', tipo: 'QUADRO GERAL DE BAIXA TENSÃO',
+      localizacao: 'FORTLEV / JUNCO II (BA) / CASA DE MÁQUINAS', prioridade: 'Média',
+      classificacao_1: null, classificacao_2: null, centro_custo: null, codigo_barras: null,
+      tarefas: [{
+        descricao: 'MANUTENÇÃO PREVENTIVA TRIMESTRAL (QGBT)', data_agendada: '2026-07-02', data_hora_inicio: '2026-07-02T09:10', data_hora_fim: '2026-07-02T09:55',
+        tipo_tarefa: 'Preventiva trimestral', prioridade: 'Média', trigger: 'Data Cada 3 Meses',
+        duracao_estimada: '00:45:00', tempo_execucao: '00:45:00', tempo_parada_ativo: '00:05:00',
+        classificacao_1: 'Evento planejado.', classificacao_2: null,
+        subtarefas: [
+          { ordem:1, grupo:'QGBT', descricao:'Verificar aperto dos barramentos e conexões.', tipo_resposta:'status', status:'aprovou', observacao:null, anexos:[] },
+          { ordem:2, grupo:'QGBT', descricao:'Inspecionar disjuntores quanto a sinais de superaquecimento.', tipo_resposta:'status', status:'aprovou', observacao:null, anexos:[] },
+          { ordem:3, grupo:'QGBT', descricao:'Limpeza geral do quadro.', tipo_resposta:'status', status:'aprovou', observacao:null, anexos:[] }
+        ]
+      }]
+    }],
+    assinaturas: { aceite_por: 'Ana Carolina', validado_por: 'Salomão Otoni', realizado_por: 'Equipe de campo O&M' }
+  }
+];
+
+/* ===================== helpers ===================== */
+function contarStatus(os){
+  const c = { aprovou:0, alerta:0, falhou:0 };
+  os.ativos.forEach(a => a.tarefas.forEach(t => t.subtarefas.forEach(s => {
+    if (s.tipo_resposta === 'status' && s.status) c[s.status]++;
+  })));
+  return c;
+}
+function piorStatus(c){
+  if (c.falhou > 0) return 'falhou';
+  if (c.alerta > 0) return 'alerta';
+  return 'ok';
+}
+function fmtData(d){
+  if (!d) return '—';
+  const [y,m,day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+function fmtDataHora(dt){
+  if (!dt) return '—';
+  const [d,h] = dt.split('T');
+  return `${fmtData(d)} ${h||''}`;
+}
+
+/* ===================== render: lista ===================== */
+function renderLista(){
+  const grid = document.getElementById('osGrid');
+  grid.innerHTML = mockOS.map((os, idx) => {
+    const c = contarStatus(os);
+    const pior = piorStatus(c);
+    const pillLabel = pior === 'ok' ? 'Sem pendências' : pior === 'alerta' ? 'Com alertas' : 'Com falhas';
+    return `
+    <div class="os-card" data-idx="${idx}">
+      <div class="os-card-top">
+        <div class="os-num">${os.numero}</div>
+        <div class="os-pill ${pior}">${pillLabel}</div>
+      </div>
+      <div class="os-card-planta">${os.planta.nome}</div>
+      <div class="os-card-meta">
+        <span><i class="fas fa-calendar"></i> ${fmtData(os.data_emissao)}</span>
+        <span><i class="fas fa-user-hard-hat"></i> ${os.responsavel}</span>
+        <span><i class="fas fa-cubes"></i> ${os.ativos.length} ativo${os.ativos.length>1?'s':''} inspecionado${os.ativos.length>1?'s':''}</span>
+      </div>
+      <div class="os-counts">
+        <span class="os-count-chip ap"><i class="fas fa-check"></i> ${c.aprovou}</span>
+        <span class="os-count-chip al"><i class="fas fa-triangle-exclamation"></i> ${c.alerta}</span>
+        <span class="os-count-chip fa"><i class="fas fa-xmark"></i> ${c.falhou}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.os-card').forEach(card => {
+    card.addEventListener('click', () => abrirDetalhe(+card.dataset.idx));
+  });
+}
+
+/* ===================== render: relatório detalhado ===================== */
+function renderAnexo(a){
+  return `
+    <div class="anexo-card">
+      <div class="anexo-img-wrap"><i class="fas fa-camera"></i></div>
+      <div class="anexo-desc">
+        ${a.legenda || ''}
+        <div class="anexo-caption">${fmtDataHora(a.timestamp)} · ${a.geolocalizacao ? a.geolocalizacao.endereco : ''} ${a.selo_nota ? '· '+a.selo_nota : ''}</div>
+      </div>
+    </div>`;
+}
+
+function renderSubtarefaRow(s){
+  let resultado = '';
+  if (s.tipo_resposta === 'status') {
+    resultado = `<span class="status-badge status-${s.status}">${STATUS_LABEL[s.status] || s.status}</span>`;
+  } else if (s.tipo_resposta === 'medicao') {
+    resultado = `<b>${s.valor_medido}</b>`;
+  } else if (s.tipo_resposta === 'foto') {
+    resultado = `<span style="color:var(--t3)"><i class="fas fa-image"></i> registro fotográfico</span>`;
+  } else {
+    resultado = '—';
+  }
+  return `
+    <tr>
+      <td class="grupo-col">${s.grupo}</td>
+      <td>
+        ${s.ordem}. ${s.descricao}
+        ${s.observacao ? `<div style="margin-top:4px;font-style:italic;color:var(--t2);font-size:11px">${s.observacao}</div>` : ''}
+      </td>
+      <td class="status-col">${resultado}</td>
+    </tr>`;
+}
+
+function renderAtivo(ativo){
+  const tarefasHtml = ativo.tarefas.map(t => {
+    const anexosFlat = [];
+    t.subtarefas.forEach(s => (s.anexos||[]).forEach(a => anexosFlat.push({ ...a, _origem: s })));
+
+    return `
+      <div class="section-title">Tarefa programada</div>
+      <div class="tarefa-header">
+        <div><span class="k">Descrição:</span> ${t.descricao}</div>
+        <div><span class="k">Data agendada:</span> ${fmtData(t.data_agendada)}</div>
+        <div><span class="k">Tipo de tarefa:</span> ${t.tipo_tarefa}</div>
+        <div><span class="k">Início → Fim:</span> ${fmtDataHora(t.data_hora_inicio)} → ${fmtDataHora(t.data_hora_fim)}</div>
+        <div><span class="k">Prioridade:</span> ${t.prioridade}</div>
+        <div><span class="k">Duração estimada:</span> ${t.duracao_estimada || '—'}</div>
+        <div><span class="k">Trigger:</span> ${t.trigger || '—'}</div>
+        <div><span class="k">Tempo de execução:</span> ${t.tempo_execucao || '—'}</div>
+        <div><span class="k">Classificação:</span> ${t.classificacao_1 || '—'}</div>
+        <div><span class="k">Parada real do ativo:</span> ${t.tempo_parada_ativo || '—'}</div>
+      </div>
+      <table class="subtasks">
+        <thead><tr><th class="grupo-col">Grupo</th><th>Descrição</th><th class="status-col">Resultado</th></tr></thead>
+        <tbody>${t.subtarefas.map(renderSubtarefaRow).join('')}</tbody>
+      </table>
+      ${anexosFlat.length ? `
+        <div class="anexos-title">Anexos do plano de manutenção</div>
+        <div class="anexos-grid">${anexosFlat.map(renderAnexo).join('')}</div>
+      ` : ''}
+    `;
+  }).join('');
+
+  return `
+    <div class="ativo-block">
+      <div class="section-title">Ativo</div>
+      <div class="ativo-fields">
+        <div class="field"><span class="k">Descrição:</span> ${ativo.descricao} { ${ativo.codigo} }</div>
+        <div class="field"><span class="k">Tipo:</span> ${ativo.tipo}</div>
+        <div class="field"><span class="k">Localizado em:</span> ${ativo.localizacao}</div>
+        <div class="field"><span class="k">Prioridade:</span> ${ativo.prioridade || '—'}</div>
+      </div>
+      ${tarefasHtml}
+    </div>`;
+}
+
+function renderRelatorio(os){
+  const root = document.getElementById('repRoot');
+  root.innerHTML = `
+    <div class="rep-header">
+      <div class="rep-brand">
+        <div class="icon"><i class="fas fa-sun"></i></div>
+        <div>
+          <div class="rep-brand-name">${os.empresa.nome}</div>
+          <div class="rep-brand-sub">${os.planta.nome} · ${os.planta.cliente} — ${os.planta.uf}</div>
+        </div>
+      </div>
+      <div class="rep-meta">
+        <div>N.º: <span class="os-number">${os.numero}</span></div>
+        <div>Data: <strong>${fmtData(os.data_emissao)}</strong></div>
+        <div>Avaliação: ${os.avaliacao ?? '—'}</div>
+      </div>
+    </div>
+
+    <table class="meta-table">
+      <tr>
+        <td class="label">Gerou</td><td>${os.gerado_por}</td>
+        <td class="label">Responsável</td><td>${os.responsavel}</td>
+      </tr>
+      <tr>
+        <td class="label">Duração estimada</td><td>${os.duracao_estimada_total}</td>
+        <td class="label">Notas</td><td>${os.notas || '—'}</td>
+      </tr>
+    </table>
+
+    ${os.ativos.map(renderAtivo).join('')}
+
+    <div class="signatures">
+      <div><div class="line">Aceite por</div><div class="name">${os.assinaturas.aceite_por || '—'}</div></div>
+      <div><div class="line">Validado por</div><div class="name">${os.assinaturas.validado_por || '—'}</div></div>
+      <div><div class="line">Realizado por</div><div class="name">${os.assinaturas.realizado_por || '—'}</div></div>
+    </div>
+    <div class="footer-note">Gerado por ${os.empresa.nome} — relatório de Ordem de Serviço</div>
+  `;
+}
+
+/* ===================== navegação ===================== */
+function abrirDetalhe(idx){
+  renderRelatorio(mockOS[idx]);
+  document.getElementById('viewList').classList.add('hidden');
+  document.getElementById('viewDetail').classList.remove('hidden');
+  window.scrollTo(0,0);
+}
+document.getElementById('btnBack').addEventListener('click', () => {
+  document.getElementById('viewDetail').classList.add('hidden');
+  document.getElementById('viewList').classList.remove('hidden');
+});
+document.getElementById('btnPrint').addEventListener('click', () => window.print());
+
+/* toggle tabbar Kanban / OS (Kanban é só uma nota informativa neste protótipo) */
+document.getElementById('tabKanban').addEventListener('click', () => {
+  document.getElementById('tabKanban').classList.add('active');
+  document.getElementById('tabOS').classList.remove('active');
+  document.getElementById('kanbanNote').style.display = 'block';
+  document.getElementById('viewList').classList.add('hidden');
+  document.getElementById('viewDetail').classList.add('hidden');
+});
+document.getElementById('tabOS').addEventListener('click', () => {
+  document.getElementById('tabOS').classList.add('active');
+  document.getElementById('tabKanban').classList.remove('active');
+  document.getElementById('kanbanNote').style.display = 'none';
+  document.getElementById('viewDetail').classList.add('hidden');
+  document.getElementById('viewList').classList.remove('hidden');
+});
+
+/* filtros (mock — populam selects, não filtram de verdade neste protótipo) */
+(function initFiltros(){
+  const usinas = [...new Set(mockOS.map(o => o.planta.nome))];
+  document.getElementById('fU').innerHTML += usinas.map(u => `<option>${u}</option>`).join('');
+  document.getElementById('fA').innerHTML = '<option value="2026">2026</option><option value="2025">2025</option>';
+})();
+
+renderLista();
+</script>
+</body>
+</html>

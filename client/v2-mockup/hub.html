@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OASIS SOLAR — v2.0 Mockup: Hub de Módulos</title>
+<script>(function(){try{if(localStorage.getItem('oasis-theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="theme.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--t1);min-height:100vh;}
+
+.proto-banner{background:#1a1a1a;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:7px;letter-spacing:.3px;}
+.proto-banner b{color:#FFD166;}
+
+/* ---- Topbar ---- */
+.topbar{background:var(--card);border-bottom:1px solid var(--bd);padding:0 32px;height:62px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--s1);}
+.tb-brand{display:flex;align-items:center;gap:10px;}
+.tb-brand .icon{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--p),var(--pl));display:flex;align-items:center;justify-content:center;color:#FFD600;font-size:15px;}
+.tb-brand .name{font-family:'Inter',sans-serif;font-size:15.5px;font-weight:700;}
+.tb-brand .ver{font-size:9px;font-weight:700;color:var(--p);background:var(--pxl);padding:2px 6px;border-radius:6px;margin-left:6px;letter-spacing:.5px;}
+.tb-user{display:flex;align-items:center;gap:10px;cursor:pointer;}
+.tb-user .av{width:32px;height:32px;border-radius:50%;background:var(--ac);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.tb-user .info{text-align:right;}
+.tb-user .nm{font-size:12.5px;font-weight:700;}
+.tb-user .rl{font-size:10px;color:var(--t3);}
+.tb-logout{width:34px;height:34px;border-radius:var(--r1);border:1px solid var(--bd);background:transparent;color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s;}
+.tb-logout:hover{background:var(--erl);color:var(--er);border-color:var(--er);}
+
+/* ---- Hero ---- */
+.hero{padding:44px 32px 8px;max-width:1180px;margin:0 auto;}
+.hero h1{font-family:'Inter',sans-serif;font-size:26px;font-weight:700;}
+.hero p{font-size:13.5px;color:var(--t2);margin-top:4px;}
+
+/* ---- Grid de módulos ---- */
+.mod-grid{max-width:1180px;margin:26px auto 60px;padding:0 32px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;}
+.mod-card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r4);padding:26px 24px;box-shadow:var(--s1);cursor:pointer;transition:all .25s;position:relative;overflow:hidden;display:flex;flex-direction:column;min-height:200px;}
+.mod-card:hover{transform:translateY(-3px);box-shadow:var(--s3);border-color:var(--p);}
+.mod-card.disabled{cursor:not-allowed;opacity:.68;}
+.mod-card.disabled:hover{transform:none;box-shadow:var(--s1);border-color:var(--bd);}
+.mod-card .glow{position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;opacity:.5;}
+.mod-ic{width:52px;height:52px;border-radius:var(--r2);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:16px;position:relative;z-index:1;}
+.mod-title{font-size:17px;font-weight:700;margin-bottom:6px;position:relative;z-index:1;}
+.mod-desc{font-size:12.5px;color:var(--t2);line-height:1.55;flex:1;position:relative;z-index:1;}
+.mod-foot{display:flex;align-items:center;justify-content:space-between;margin-top:16px;position:relative;z-index:1;}
+.mod-arrow{font-size:13px;color:var(--p);}
+.mod-badge{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:3px 9px;border-radius:20px;}
+.mod-badge.soon{background:var(--wnl);color:#B45309;}
+.mod-badge.live{background:var(--okl);color:var(--ok);}
+
+.mod-card.c-monitor .mod-ic{background:var(--acl);color:#0090AD;}
+.mod-card.c-monitor .glow{background:radial-gradient(circle,var(--acl),transparent 70%);}
+.mod-card.c-geracao .mod-ic{background:var(--pxl);color:var(--p);}
+.mod-card.c-geracao .glow{background:radial-gradient(circle,var(--pxl),transparent 70%);}
+.mod-card.c-financeiro .mod-ic{background:var(--okl);color:var(--ok);}
+.mod-card.c-financeiro .glow{background:radial-gradient(circle,var(--okl),transparent 70%);}
+.mod-card.c-obras .mod-ic{background:var(--wnl);color:#B45309;}
+.mod-card.c-obras .glow{background:radial-gradient(circle,var(--wnl),transparent 70%);}
+.mod-card.c-admin .mod-ic{background:var(--finl,#EDE9FE);color:var(--fin,#8B5CF6);}
+.mod-card.c-admin .glow{background:radial-gradient(circle,var(--finl,#EDE9FE),transparent 70%);}
+
+/* ---- Toast ---- */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--sb);color:#fff;padding:12px 20px;border-radius:var(--r2);font-size:12.5px;font-weight:600;box-shadow:var(--s3);display:flex;align-items:center;gap:9px;opacity:0;pointer-events:none;transition:all .25s;z-index:200;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast i{color:#FFD600;}
+
+@media(max-width:640px){
+  .topbar{padding:0 16px;}
+  .hero,.mod-grid{padding-left:16px;padding-right:16px;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-brand">
+    <div class="icon"><i class="fas fa-sun"></i></div>
+    <div class="name">OASIS SOLAR</div>
+    <div class="ver">v2.0</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div class="tb-user">
+      <div class="av">EM</div>
+      <div class="info">
+        <div class="nm">Eduardo Motta</div>
+        <div class="rl">Administrador</div>
+      </div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="Alternar tema"><i class="fas fa-sun"></i></button>
+    <button class="tb-logout" id="btnLogout" title="Sair"><i class="fas fa-arrow-right-from-bracket"></i></button>
+  </div>
+</div>
+
+<div class="hero">
+  <h1>Selecione um módulo</h1>
+  <p>Escolha onde você quer trabalhar agora — cada módulo tem sua própria navegação e permissões.</p>
+</div>
+
+<div class="mod-grid">
+
+  <div class="mod-card c-monitor" data-target="monitoramento.html" data-label="Monitoramento">
+    <div class="glow"></div>
+    <div class="mod-ic"><i class="fas fa-satellite-dish"></i></div>
+    <div class="mod-title">Monitoramento</div>
+    <div class="mod-desc">Mapa de potência, alarmes e análises dos inversores em tempo real (integração SolarIQ).</div>
+    <div class="mod-foot">
+      <span class="mod-badge live">Mockup</span>
+      <i class="fas fa-arrow-right mod-arrow"></i>
+    </div>
+  </div>
+
+  <div class="mod-card c-geracao" data-target="geracao/index.html" data-label="Relatório de Geração">
+    <div class="glow"></div>
+    <div class="mod-ic"><i class="fas fa-chart-line"></i></div>
+    <div class="mod-title">Relatório de Geração</div>
+    <div class="mod-desc">Dashboard, cadastro de usinas, lançamentos, manutenção, comparativo e relatórios — tudo da v1.0, reorganizado.</div>
+    <div class="mod-foot">
+      <span class="mod-badge live">Mockup</span>
+      <i class="fas fa-arrow-right mod-arrow"></i>
+    </div>
+  </div>
+
+  <div class="mod-card c-financeiro" data-target="financeiro.html" data-label="Financeiro">
+    <div class="glow"></div>
+    <div class="mod-ic"><i class="fas fa-sack-dollar"></i></div>
+    <div class="mod-title">Financeiro</div>
+    <div class="mod-desc">Receitas, despesas e financiamentos — agora como módulo independente, fora da Geração.</div>
+    <div class="mod-foot">
+      <span class="mod-badge live">Mockup</span>
+      <i class="fas fa-arrow-right mod-arrow"></i>
+    </div>
+  </div>
+
+  <div class="mod-card c-admin" data-target="admin.html" data-label="Administração">
+    <div class="glow"></div>
+    <div class="mod-ic"><i class="fas fa-user-shield"></i></div>
+    <div class="mod-title">Administração</div>
+    <div class="mod-desc">Gerenciamento de usuários, perfis, acesso por usina e permissões granulares por seção.</div>
+    <div class="mod-foot">
+      <span class="mod-badge live">Mockup</span>
+      <i class="fas fa-arrow-right mod-arrow"></i>
+    </div>
+  </div>
+
+  <div class="mod-card c-obras disabled" data-target="" data-label="Obras">
+    <div class="glow"></div>
+    <div class="mod-ic"><i class="fas fa-helmet-safety"></i></div>
+    <div class="mod-title">Obras</div>
+    <div class="mod-desc">Gestão de obras e projetos em implantação. Módulo reservado para uma fase futura.</div>
+    <div class="mod-foot">
+      <span class="mod-badge soon">Em breve</span>
+      <i class="fas fa-lock mod-arrow"></i>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"><i class="fas fa-circle-info"></i> <span id="toastMsg"></span></div>
+
+<script>
+const toast = document.getElementById('toast');
+const toastMsg = document.getElementById('toastMsg');
+function showToast(msg){
+  toastMsg.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3200);
+}
+
+document.querySelectorAll('.mod-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const target = card.dataset.target;
+    const label = card.dataset.label;
+    if (card.classList.contains('disabled')) {
+      showToast(`Módulo "${label}" ainda não está disponível — chega numa fase futura.`);
+      return;
+    }
+    if (!target) return;
+    fetch(target, { method: 'HEAD' }).then(r => {
+      if (r.ok) window.location.href = target;
+      else showToast(`Módulo "${label}" será prototipado na próxima fase.`);
+    }).catch(() => {
+      window.location.href = target;
+    });
+  });
+});
+
+document.getElementById('btnLogout').addEventListener('click', () => {
+  window.location.href = 'login.html';
+});
+
+/* toggle de tema (dark/light), persistido em localStorage */
+(function(){
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  function isLight(){ return root.getAttribute('data-theme') === 'light'; }
+  function updateIcon(){ btn.innerHTML = isLight() ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>'; }
+  updateIcon();
+  btn.addEventListener('click', () => {
+    if (isLight()) { root.removeAttribute('data-theme'); localStorage.setItem('oasis-theme','dark'); }
+    else { root.setAttribute('data-theme','light'); localStorage.setItem('oasis-theme','light'); }
+    updateIcon();
+  });
+})();
+</script>
+</body>
+</html>
