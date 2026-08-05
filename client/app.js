@@ -6,7 +6,7 @@ import {
   $, $$, MO, MOF, COLS,
   toast, fmtNum, fmtBRL, fmtDate, fmtPeriodo, debounce,
   aplicarRoleUI, preencherSelectAno, preencherSelectUsinas,
-  openM, closeM,
+  openM, closeM, getTheme, setTheme, toggleTheme,
 } from './utils.js';
 
 // ---------- Estado global do cliente ----------
@@ -23,6 +23,25 @@ const state = {
   dragManutId: null,
 };
 
+// ---------- Tema aplicado aos gráficos (Chart.js) ----------
+function cssVar(name, fallback) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+function chartGrid() {
+  return getTheme() === 'dark' ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)';
+}
+function chartCardBg() {
+  return cssVar('--card', '#fff');
+}
+function chartMuted() {
+  return cssVar('--bdl', '#EBF2FC');
+}
+function aplicarTemaCharts() {
+  if (typeof Chart === 'undefined') return;
+  Chart.defaults.color = cssVar('--t2', '#4B5E7E');
+  Chart.defaults.borderColor = chartGrid();
+}
+
 // =====================================================
 // BOOT
 // =====================================================
@@ -34,6 +53,8 @@ const state = {
     // não autenticado → /api redireciona pra login
     return;
   }
+  setTheme(getTheme());
+  aplicarTemaCharts();
   prepararUI();
   setupNav();
   setupEventos();
@@ -366,7 +387,7 @@ function renderMainChart(meses) {
       scales: {
         y: {
           type: 'linear', position: 'left', beginAtZero: true,
-          grid: { color: 'rgba(0,0,0,.04)' },
+          grid: { color: chartGrid() },
           title: { display: true, text: 'MWh', font: { size: 10 } },
         },
         y1: {
@@ -392,7 +413,7 @@ function renderPieChart(distrib) {
           data: distrib.map((d) => d.geracao || d.kwp),
           backgroundColor: COLS,
           borderWidth: 2,
-          borderColor: '#fff',
+          borderColor: chartCardBg(),
         },
       ],
     },
@@ -442,7 +463,7 @@ function renderIrradChart(meses) {
       responsive: true,
       plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 14 } } },
       scales: {
-        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.04)' }, ticks: { callback: (v) => v + ' kWh/m²' } },
+        y: { beginAtZero: true, grid: { color: chartGrid() }, ticks: { callback: (v) => v + ' kWh/m²' } },
         x: { grid: { display: false } },
       },
     },
@@ -488,7 +509,7 @@ function renderYieldChart(porUsina) {
       scales: {
         x: {
           beginAtZero: true,
-          grid: { color: 'rgba(0,0,0,.04)' },
+          grid: { color: chartGrid() },
           ticks: { callback: (v) => v.toFixed(0) + ' kWh/kWp' },
         },
         y: { grid: { display: false }, ticks: { font: { size: 11 } } },
@@ -1296,7 +1317,7 @@ function renderFinChart(mensal) {
     options: {
       responsive: true,
       plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 11, padding: 12 } } },
-      scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.04)' }, ticks: { callback: (v) => 'R$ ' + v.toLocaleString('pt-BR') } } },
+      scales: { y: { beginAtZero: true, grid: { color: chartGrid() }, ticks: { callback: (v) => 'R$ ' + v.toLocaleString('pt-BR') } } },
     },
   });
 }
@@ -1324,7 +1345,7 @@ function renderFinCatChart(porCategoria, tipo = 'des') {
     // Desenha um gráfico vazio com mensagem
     state.charts.finCat = new Chart(ctx.getContext('2d'), {
       type: 'doughnut',
-      data: { labels: ['Sem dados'], datasets: [{ data: [1], backgroundColor: ['#EBF2FC'], borderWidth: 0 }] },
+      data: { labels: ['Sem dados'], datasets: [{ data: [1], backgroundColor: [chartMuted()], borderWidth: 0 }] },
       options: {
         responsive: true,
         cutout: '62%',
@@ -1346,7 +1367,7 @@ function renderFinCatChart(porCategoria, tipo = 'des') {
         {
           data: dados.map((c) => c.total),
           backgroundColor: dados.map((_, i) => FIN_CAT_COLORS[i % FIN_CAT_COLORS.length]),
-          borderColor: '#fff',
+          borderColor: chartCardBg(),
           borderWidth: 2,
         },
       ],
@@ -1796,7 +1817,7 @@ function renderFitChart(items, ano) {
         tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmtNum(c.parsed.y, 0)} kWh` } },
       },
       scales: {
-        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.04)' }, ticks: { callback: (v) => fmtNum(v, 0) + ' kWh' } },
+        y: { beginAtZero: true, grid: { color: chartGrid() }, ticks: { callback: (v) => fmtNum(v, 0) + ' kWh' } },
         x: { grid: { display: false } },
       },
     },
@@ -2400,8 +2421,8 @@ async function renderComparativo() {
         responsive: true,
         plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 11, padding: 13 } } },
         scales: {
-          y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.04)' }, ticks: { callback: (v) => v + ' MWh' } },
-          x: tipo === 'bar' ? { grid: { display: false } } : { grid: { color: 'rgba(0,0,0,.04)' } },
+          y: { beginAtZero: true, grid: { color: chartGrid() }, ticks: { callback: (v) => v + ' MWh' } },
+          x: tipo === 'bar' ? { grid: { display: false } } : { grid: { color: chartGrid() } },
         },
       },
     });
@@ -2926,6 +2947,14 @@ function setupEventos() {
       renderFinanceiro();
     }),
   );
+
+  // Tema claro/escuro
+  $('btnTheme').addEventListener('click', () => {
+    toggleTheme();
+    aplicarTemaCharts();
+    const activeSection = document.querySelector('.nav-item.active')?.dataset.section;
+    if (activeSection) abrirSecao(activeSection);
+  });
 
   // Notificações
   $('btnNotif').addEventListener('click', () => $('notifPanel').classList.toggle('open'));

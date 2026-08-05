@@ -4,19 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>OASIS SOLAR — Login</title>
+<script>(function(){try{var t=localStorage.getItem('oasis-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="stylesheet" href="styles.css">
 <style>
 body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0057B8 0%,#001F5C 100%);padding:20px;}
-.login-card{background:#fff;border-radius:20px;padding:36px 30px;width:380px;max-width:100%;box-shadow:0 24px 60px rgba(0,31,92,.4);}
+.login-card{background:var(--card);border-radius:20px;padding:36px 30px;width:380px;max-width:100%;box-shadow:0 24px 60px rgba(0,31,92,.4);}
 .brand{text-align:center;margin-bottom:24px;}
 .brand .ico{font-size:38px;color:#FFD600;margin-bottom:10px;}
-.brand .title{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:800;color:#0057B8;letter-spacing:1px;}
-.brand .sub{font-size:11px;color:#8EA3C0;letter-spacing:2px;text-transform:uppercase;margin-top:2px;}
-.lg-msg{background:#FEE2E2;color:#991B1B;padding:9px 12px;border-radius:8px;font-size:12px;margin-bottom:13px;display:none;}
+.brand .title{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:800;color:var(--p);letter-spacing:1px;}
+.brand .sub{font-size:11px;color:var(--t3);letter-spacing:2px;text-transform:uppercase;margin-top:2px;}
+.lg-msg{background:var(--erl);color:var(--er);padding:9px 12px;border-radius:8px;font-size:12px;margin-bottom:13px;display:none;}
 .lg-msg.show{display:block;}
-.lg-msg.ok{background:#D1FAE5;color:#065F46;}
+.lg-msg.ok{background:var(--okl);color:var(--ok);}
 </style>
 </head>
 <body>

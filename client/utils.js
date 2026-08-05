@@ -7,6 +7,28 @@ export const COLS = ['#0057B8', '#00B4D8', '#10B981', '#F59E0B', '#8B5CF6', '#EF
 export const $ = (id) => document.getElementById(id);
 export const $$ = (sel, root = document) => root.querySelectorAll(sel);
 
+// ---------- Tema (claro/escuro) ----------
+const THEME_KEY = 'oasis-theme';
+
+export function getTheme() {
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+}
+
+export function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  try { localStorage.setItem(THEME_KEY, theme); } catch {}
+  const icon = $('btnThemeIcon');
+  if (icon) icon.className = 'fas ' + (theme === 'dark' ? 'fa-sun' : 'fa-moon');
+  const btn = $('btnTheme');
+  if (btn) btn.title = theme === 'dark' ? 'Tema claro' : 'Tema escuro';
+}
+
+export function toggleTheme() {
+  const next = getTheme() === 'dark' ? 'light' : 'dark';
+  setTheme(next);
+  return next;
+}
+
 export function toast(msg, tipo = 'ok') {
   const ICONS = { ok: 'fa-check-circle', info: 'fa-info-circle', wn: 'fa-exclamation-triangle', er: 'fa-times-circle' };
   const COLORS = { ok: 'var(--ok)', info: 'var(--p)', wn: 'var(--wn)', er: 'var(--er)' };

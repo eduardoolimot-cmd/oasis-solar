@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>OASIS SOLAR — Painel</title>
+<script>(function(){try{var t=localStorage.getItem('oasis-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
@@ -53,6 +54,7 @@
     </div>
     <div class="tb-right">
       <div class="status-badge" id="rtStatus"><div class="status-dot"></div><span>Conectando…</span></div>
+      <button class="tb-btn" id="btnTheme" title="Tema escuro"><i class="fas fa-moon" id="btnThemeIcon"></i></button>
       <button class="tb-btn" id="btnRefresh" title="Atualizar"><i class="fas fa-sync-alt"></i></button>
       <button class="tb-btn" id="btnNotif" title="Notificações"><i class="fas fa-bell"></i><div class="notif-dot" id="notifDot"></div></button>
     </div>
