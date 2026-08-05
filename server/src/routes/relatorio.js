@@ -4,6 +4,7 @@ import PDFDocument from 'pdfkit';
 import { prisma } from '../db.js';
 import { asyncRoute, httpErrors } from '../lib/http.js';
 import { requireAuth } from '../middleware/auth.js';
+import { fatorDegradacao } from '../lib/degradacao.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -49,7 +50,8 @@ router.get(
 
     const gR = lancamentos.reduce((s, l) => s + l.geracao, 0);
     const prevMes = usina.previsoes.find((p) => p.mes === parseInt(mes));
-    const gP = prevMes?.gen || 0;
+    const degradacao = fatorDegradacao(usina.inicio, parseInt(ano));
+    const gP = (prevMes?.gen || 0) * degradacao;
     const iP = prevMes?.irrad || 0;
     const pP = prevMes?.pr || 0;
     const iR = lancamentos.length

@@ -70,6 +70,37 @@ export const lancamentoFiltroSchema = z.object({
   mes: z.string().regex(/^(0[1-9]|1[0-2])$/).optional(),
 });
 
+// ---------- Lançamento diário de geração (recurso em teste, ADMIN) ----------
+// data: "YYYY-MM-DD"
+export const lancamentoDiarioSchema = z.object({
+  usinaId: z.string().min(1, 'Usina é obrigatória'),
+  skidId: z.string().optional().nullable(),
+  data: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD')
+    .transform((v) => new Date(`${v}T00:00:00.000Z`)),
+  geracao: z.coerce.number().min(0, 'Geração deve ser >= 0'),
+  irrad: z.coerce.number().min(0).default(0),
+  pr: z.coerce.number().min(0).max(100).default(0),
+  disp: z.coerce.number().min(0).max(100).default(0),
+  obs: optionalString,
+});
+
+export const lancamentoDiarioFiltroSchema = z.object({
+  usinaId: z.string().optional(),
+  skidId: z.string().optional(),
+  ano: z.string().regex(/^\d{4}$/).optional(),
+  mes: z.string().regex(/^(0[1-9]|1[0-2])$/).optional(),
+});
+
+// KPIs diários exigem um mês específico (dividir em dias só faz sentido dentro de 1 mês)
+export const dashboardDiarioFiltroSchema = z.object({
+  ano: z.string().regex(/^\d{4}$/),
+  mes: z.string().regex(/^(0[1-9]|1[0-2])$/),
+  usinaId: z.string().optional(),
+  skidId: z.string().optional(),
+});
+
 // ---------- Manutenção ----------
 const MANUT_TIPOS = ['prev', 'corr', 'pred', 'plan'];
 const MANUT_STATUS = ['plan', 'exec', 'ok'];

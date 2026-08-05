@@ -29,14 +29,15 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  lancamentos  Lancamento[]
-  manutencoes  Manutencao[]
-  financeiros  Financeiro[]
-  notificacoes Notificacao[]
-  auditLogs    AuditLog[]
-  acessos      UsinaAccess[]
-  fits         FitEnergia[]
-  permissoes   UserPermission[]
+  lancamentos       Lancamento[]
+  lancamentosDiarios LancamentoDiario[]
+  manutencoes       Manutencao[]
+  financeiros       Financeiro[]
+  notificacoes      Notificacao[]
+  auditLogs         AuditLog[]
+  acessos           UsinaAccess[]
+  fits              FitEnergia[]
+  permissoes        UserPermission[]
 }
 
 // Permissões granulares por seção do app.
@@ -88,13 +89,14 @@ model Usina {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  skids       Skid[]
-  previsoes   Previsao[]
-  lancamentos Lancamento[]
-  manutencoes Manutencao[]
-  financeiros Financeiro[]
-  acessos     UsinaAccess[]
-  fits        FitEnergia[]
+  skids             Skid[]
+  previsoes         Previsao[]
+  lancamentos       Lancamento[]
+  lancamentosDiarios LancamentoDiario[]
+  manutencoes       Manutencao[]
+  financeiros       Financeiro[]
+  acessos           UsinaAccess[]
+  fits              FitEnergia[]
 
   @@index([nome])
 }
@@ -134,9 +136,10 @@ model Skid {
   kwp       Float    @default(0)
   createdAt DateTime @default(now())
 
-  usina       Usina        @relation(fields: [usinaId], references: [id], onDelete: Cascade)
-  previsoes   Previsao[]
-  lancamentos Lancamento[]
+  usina             Usina              @relation(fields: [usinaId], references: [id], onDelete: Cascade)
+  previsoes         Previsao[]
+  lancamentos       Lancamento[]
+  lancamentosDiarios LancamentoDiario[]
 
   @@unique([usinaId, nome])
 }
@@ -178,6 +181,32 @@ model Lancamento {
   @@unique([usinaId, skidId, periodo])
   @@index([periodo])
   @@index([usinaId, periodo])
+}
+
+// Geração diária — recurso em teste, dado separado do Lancamento mensal.
+// Alimenta a aba "Geração Diária" (restrita a ADMIN).
+model LancamentoDiario {
+  id      String   @id @default(cuid())
+  usinaId String
+  skidId  String?
+  data    DateTime
+  geracao Float
+  irrad   Float    @default(0)
+  pr      Float    @default(0)
+  disp    Float    @default(0)
+  obs     String?
+
+  criadoPorId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  usina     Usina @relation(fields: [usinaId], references: [id], onDelete: Cascade)
+  skid      Skid? @relation(fields: [skidId], references: [id], onDelete: SetNull)
+  criadoPor User? @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([usinaId, skidId, data])
+  @@index([data])
+  @@index([usinaId, data])
 }
 
 model Manutencao {

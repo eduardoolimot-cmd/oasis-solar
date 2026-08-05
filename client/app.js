@@ -14,11 +14,12 @@ const state = {
   user: null,
   usinas: [],
   lancamentos: [],
+  lancamentosDiarios: [],
   manutencoes: [],
   financeiro: [],
   notificacoes: [],
   socket: null,
-  charts: { main: null, pie: null, fin: null, finCat: null, irrad: null, yieldCh: null, comp: null, fit: null },
+  charts: { main: null, pie: null, fin: null, finCat: null, irrad: null, yieldCh: null, comp: null, fit: null, gdMain: null, gdPie: null },
   finCatTipo: 'des', // 'des' = despesas (default), 'rec' = receitas
   dragManutId: null,
 };
@@ -67,6 +68,11 @@ function aplicarTemaCharts() {
   preencherSelectAno('relGerAno', false);
   preencherSelectAno('relFinAno', false);
   preencherSelectAno('fitFA', false);
+  if ($('gdAno')) {
+    preencherSelectAno('gdAno', false);
+    $('gdMes').value = String(new Date().getMonth() + 1).padStart(2, '0');
+    $('gdFData').value = new Date().toISOString().slice(0, 10);
+  }
   $('lPer').value = new Date().toISOString().slice(0, 7);
   const mesAtual = String(new Date().getMonth() + 1).padStart(2, '0');
   if ($('relGerMes')) $('relGerMes').value = mesAtual;
@@ -126,6 +132,7 @@ const SECTIONS = {
   comparativo: { t: 'Comparativo', d: 'Comparação entre usinas' },
   relatorio: { t: 'Relatório', d: 'Geração de PDFs' },
   usuarios: { t: 'Gerenciamento de Usuários', d: 'Acesso administrativo' },
+  'geracao-diaria': { t: 'Geração Diária', d: 'Painel diário (teste) — restrito a ADMIN' },
 };
 
 function setupNav() {
@@ -169,6 +176,7 @@ async function abrirSecao(name) {
   if (name === 'relatorio') await renderRelatorio();
   if (name === 'usuarios') await renderUsuarios();
   if (name === 'fit') await renderFit();
+  if (name === 'geracao-diaria') await renderGeracaoDiaria();
 }
 
 // =====================================================
@@ -189,6 +197,10 @@ async function carregarUsinas() {
   preencherSelectUsinas('relFinUsina', state.usinas, { prefix: 'Todas as usinas' });
   preencherSelectUsinas('fitFU', state.usinas, { prefix: 'Todas as usinas' });
   preencherSelectUsinas('fitUsina', state.usinas, { prefix: '— Selecionar —' });
+  if ($('gdUsina')) {
+    preencherSelectUsinas('gdUsina', state.usinas, { prefix: 'Todas as Usinas' });
+    preencherSelectUsinas('gdFUsina', state.usinas, { prefix: '— Selecionar —' });
+  }
   atualizarSkidSelect();
 }
 
@@ -211,6 +223,34 @@ function atualizarSkidSelect() {
 function atualizarLSkidSelect() {
   const usinaId = $('lUsina')?.value || '';
   const sel = $('lSkid');
+  if (!sel) return;
+  let html = '<option value="">Geral (sem SKID)</option>';
+  if (usinaId) {
+    const u = state.usinas.find((x) => x.id === usinaId);
+    if (u?.skids?.length) {
+      html += u.skids.map((s) => `<option value="${s.id}">${s.nome}</option>`).join('');
+    }
+  }
+  sel.innerHTML = html;
+}
+
+function atualizarGdSkidSelect() {
+  const usinaId = $('gdUsina')?.value || '';
+  const sel = $('gdSkid');
+  if (!sel) return;
+  let html = '<option value="">Todos os SKIDs</option>';
+  if (usinaId) {
+    const u = state.usinas.find((x) => x.id === usinaId);
+    if (u?.skids?.length) {
+      html += u.skids.map((s) => `<option value="${s.id}">${s.nome}</option>`).join('');
+    }
+  }
+  sel.innerHTML = html;
+}
+
+function atualizarGdFSkidSelect() {
+  const usinaId = $('gdFUsina')?.value || '';
+  const sel = $('gdFSkid');
   if (!sel) return;
   let html = '<option value="">Geral (sem SKID)</option>';
   if (usinaId) {
@@ -2542,6 +2582,263 @@ function exportarFinCSV() {
 }
 
 // =====================================================
+// GERAÇÃO DIÁRIA (admin — recurso em teste)
+// =====================================================
+async function renderGeracaoDiaria() {
+  if (state.user.role !== 'ADMIN') {
+    $('sec-geracao-diaria').innerHTML = '<div class="alert alert-er">Acesso restrito a administradores</div>';
+    return;
+  }
+  const ano = $('gdAno').value;
+  const mes = $('gdMes').value;
+  const usinaId = $('gdUsina').value;
+  const skidId = $('gdSkid').value;
+
+  const qs = new URLSearchParams({ ano, mes });
+  if (usinaId) qs.set('usinaId', usinaId);
+  if (skidId) qs.set('skidId', skidId);
+
+  let data;
+  try {
+    data = await api.get('/geracao-diaria/kpis?' + qs);
+  } catch (e) {
+    toast(e.message, 'er');
+    return;
+  }
+  const u = state.usinas.find((x) => x.id === usinaId);
+  $('gdChartSub').textContent = `${MOF[parseInt(mes) - 1]}/${ano} — ${u?.nome || 'todas as usinas'}`;
+
+  renderGdKPIs(data.kpis);
+  renderGdDiaTable(data.diasData);
+  renderGdUsinaTable(data.porUsina);
+  renderGdMainChart(data.diasData);
+  renderGdPieChart(data.distribuicao);
+
+  await renderGdHist();
+}
+
+function renderGdKPIs(k) {
+  const variacao = k.geracao.variacao;
+  const corVar = variacao >= 0 ? 'up' : 'dn';
+  const arrowVar = variacao >= 0 ? 'up' : 'down';
+  $('gdKpiGrid').innerHTML = `
+    <div class="kpi c-b"><div class="kpi-h"><div class="kpi-ic c-b"><i class="fas fa-bolt"></i></div>
+      <span class="kbdg ${corVar}"><i class="fas fa-arrow-${arrowVar}"></i> ${variacao}%</span></div>
+      <div><span class="kval">${fmtNum(k.geracao.valor)}</span><span class="kunit">kWh</span></div>
+      <div class="klbl">Geração Total (mês)</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:3px">Prev: ${fmtNum(k.geracao.previsto)} kWh</div>
+      <div class="kbar"><div class="kbar-f" style="width:${Math.min(k.geracao.previsto ? (k.geracao.valor / k.geracao.previsto) * 100 : 0, 100)}%;background:${variacao >= 0 ? 'var(--ok)' : 'var(--er)'}"></div></div>
+    </div>
+    <div class="kpi c-c"><div class="kpi-h"><div class="kpi-ic c-c"><i class="fas fa-check-circle"></i></div>
+      <span class="kbdg ${k.disponibilidade.valor >= 96 ? 'up' : 'dn'}"><i class="fas fa-arrow-${k.disponibilidade.valor >= 96 ? 'up' : 'down'}"></i></span></div>
+      <div><span class="kval">${k.disponibilidade.valor.toFixed(1)}</span><span class="kunit">%</span></div>
+      <div class="klbl">Disponibilidade</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:3px">Meta: ${k.disponibilidade.meta}%</div>
+      <div class="kbar"><div class="kbar-f" style="width:${k.disponibilidade.valor}%"></div></div>
+    </div>
+    <div class="kpi c-a"><div class="kpi-h"><div class="kpi-ic c-a"><i class="fas fa-chart-pie"></i></div>
+      <span class="kbdg ${k.pr.valor >= 81 ? 'up' : 'dn'}"><i class="fas fa-arrow-${k.pr.valor >= 81 ? 'up' : 'down'}"></i></span></div>
+      <div><span class="kval">${k.pr.valor.toFixed(1)}</span><span class="kunit">%</span></div>
+      <div class="klbl">Performance Ratio</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:3px">Ref: ${k.pr.referencia}% · Meta: ${k.pr.meta}%</div>
+      <div class="kbar"><div class="kbar-f" style="width:${k.pr.valor}%;background:var(--wn)"></div></div>
+    </div>
+    <div class="kpi c-b"><div class="kpi-h"><div class="kpi-ic c-b"><i class="fas fa-tachometer-alt"></i></div>
+      <span class="kbdg up">Yield</span></div>
+      <div><span class="kval">${(k.produtividade?.valor || 0).toFixed(2)}</span><span class="kunit">kWh/kWp</span></div>
+      <div class="klbl">Produtividade (mês)</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:3px">Específico do período</div>
+      <div class="kbar"><div class="kbar-f" style="width:${Math.min((k.produtividade?.valor || 0) / 2.5, 100)}%;background:var(--p)"></div></div>
+    </div>`;
+}
+
+function renderGdDiaTable(dias) {
+  $('gdDiaTblBody').innerHTML = dias.length
+    ? dias.map((d) => {
+        const up = d.variacao >= 0;
+        return `<tr>
+          <td><strong>${String(d.dia).padStart(2, '0')}</strong></td>
+          <td><strong>${fmtNum(d.gerReal)}</strong> kWh</td>
+          <td class="td2">${fmtNum(d.gerPrev)} kWh</td>
+          <td style="color:${up ? 'var(--ok)' : 'var(--er)'};font-weight:700">${up ? '+' : ''}${d.variacao}%</td>
+          <td>${d.irrad ? d.irrad.toFixed(1) : '—'} kWh/m²</td>
+          <td><span class="pill ${d.pr >= 81 ? 'p-ok' : 'p-wn'}">${d.pr ? d.pr.toFixed(1) : '0'}%</span></td>
+          <td><span class="pill ${!d.disp || d.disp >= 96 ? 'p-ok' : 'p-wn'}">${d.disp ? d.disp.toFixed(1) + '%' : '—'}</span></td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:22px">Sem dados</td></tr>';
+}
+
+function renderGdUsinaTable(porUsina) {
+  $('gdUsinaTblBody').innerHTML = porUsina.length
+    ? porUsina.map((u) => {
+        const up = u.variacao >= 0;
+        return `<tr>
+          <td><strong>${u.nome}</strong></td>
+          <td class="td2">${fmtNum(u.kwp)} kWp</td>
+          <td><strong>${fmtNum(u.gerReal)}</strong> kWh</td>
+          <td class="td2" title="${u.degradacao ? '−' + u.degradacao + '% por degradação' : 'Sem degradação'}">${fmtNum(u.gerPrev)} kWh${u.degradacao > 0 ? ` <span style="color:var(--er);font-size:10px">↓${u.degradacao}%</span>` : ''}</td>
+          <td class="td2">${u.yieldReal} kWh/kWp</td>
+          <td><span class="pill ${u.pr >= 81 ? 'p-ok' : 'p-wn'}">${u.pr.toFixed(1)}%</span></td>
+          <td><span class="pill ${u.disp >= 96 ? 'p-ok' : 'p-wn'}">${u.disp.toFixed(1)}%</span></td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:22px">Sem dados</td></tr>';
+}
+
+function renderGdMainChart(dias) {
+  const ctx = $('gdMainChart').getContext('2d');
+  if (state.charts.gdMain) state.charts.gdMain.destroy();
+  state.charts.gdMain = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: dias.map((d) => String(d.dia).padStart(2, '0')),
+      datasets: [
+        {
+          label: 'Geração Real (kWh)',
+          data: dias.map((d) => d.gerReal),
+          backgroundColor: 'rgba(0,87,184,.72)',
+          borderColor: '#0057B8',
+          borderWidth: 1.5,
+          borderRadius: 4,
+        },
+        {
+          label: 'Previsto (kWh)',
+          data: dias.map((d) => d.gerPrev),
+          type: 'line',
+          borderColor: '#00B4D8',
+          borderWidth: 2,
+          pointRadius: 2,
+          fill: false,
+          tension: 0.3,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 12 } } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: chartGrid() } },
+        x: { grid: { display: false } },
+      },
+    },
+  });
+}
+
+function renderGdPieChart(distrib) {
+  const ctx = $('gdPieChart').getContext('2d');
+  if (state.charts.gdPie) state.charts.gdPie.destroy();
+  state.charts.gdPie = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: distrib.map((d) => d.nome),
+      datasets: [{ data: distrib.map((d) => d.geracao), backgroundColor: COLS, borderWidth: 2, borderColor: chartCardBg() }],
+    },
+    options: {
+      responsive: true,
+      cutout: '64%',
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 11, padding: 11 } } },
+    },
+  });
+}
+
+async function renderGdHist() {
+  const usinaId = $('gdUsina').value;
+  const ano = $('gdAno').value;
+  const mes = $('gdMes').value;
+  const qs = new URLSearchParams({ ano, mes });
+  if (usinaId) qs.set('usinaId', usinaId);
+  state.lancamentosDiarios = await api.get('/geracao-diaria?' + qs);
+
+  $('gdHist').innerHTML = state.lancamentosDiarios.length
+    ? state.lancamentosDiarios.map((l) => `
+      <tr>
+        <td><strong>${l.usinaNome}</strong></td>
+        <td class="td2">${l.skidNome || '—'}</td>
+        <td>${fmtDate(l.data)}</td>
+        <td><strong>${fmtNum(l.geracao)}</strong></td>
+        <td>${l.irrad ? l.irrad.toFixed(1) : '—'} kWh/m²</td>
+        <td><span class="pill ${l.pr >= 81 ? 'p-ok' : 'p-wn'}">${l.pr?.toFixed(1) || '0'}%</span></td>
+        <td><span class="pill ${!l.disp || l.disp >= 96 ? 'p-ok' : 'p-wn'}">${l.disp ? l.disp.toFixed(1) + '%' : '—'}</span></td>
+        <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${l.obs || ''}">${l.obs || '—'}</td>
+        <td style="white-space:nowrap">
+          <button class="bico" data-edit-gd="${l.id}" title="Editar"><i class="fas fa-edit"></i></button>
+          <button class="bico er" data-del-gd="${l.id}" title="Excluir"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>`).join('')
+    : '<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:22px">Nenhum registro</td></tr>';
+  $$('[data-del-gd]').forEach((b) => b.addEventListener('click', () => deletarGd(b.dataset.delGd)));
+  $$('[data-edit-gd]').forEach((b) => b.addEventListener('click', () => editarGd(b.dataset.editGd)));
+}
+
+async function salvarGd() {
+  const usinaId = $('gdFUsina').value;
+  if (!usinaId) return toast('Selecione uma usina', 'er');
+  if (!$('gdFData').value) return toast('Informe a data', 'er');
+  const payload = {
+    usinaId,
+    skidId: $('gdFSkid').value || null,
+    data: $('gdFData').value,
+    geracao: parseFloat($('gdFGen').value),
+    irrad: parseFloat($('gdFIrr').value) || 0,
+    pr: parseFloat($('gdFPR').value) || 0,
+    disp: parseFloat($('gdFDisp').value) || 0,
+    obs: $('gdFObs').value || null,
+  };
+  if (!payload.geracao && payload.geracao !== 0) return toast('Informe a geração', 'er');
+  const editId = $('gdEditId')?.value;
+  try {
+    if (editId) {
+      await api.put('/geracao-diaria/' + editId, payload);
+      toast('Lançamento diário atualizado', 'ok');
+    } else {
+      await api.post('/geracao-diaria', payload);
+      toast('Lançamento diário salvo!', 'ok');
+    }
+    limparGdForm();
+    await renderGeracaoDiaria();
+  } catch (e) {
+    toast(e.message, 'er');
+  }
+}
+
+function limparGdForm() {
+  ['gdFGen', 'gdFIrr', 'gdFPR', 'gdFDisp', 'gdFObs'].forEach((id) => ($(id).value = ''));
+  $('gdEditId').value = '';
+  $('gdFormTitle').innerHTML = '<i class="fas fa-upload" style="color:var(--p)"></i> Novo Lançamento Diário';
+  $('gdFData').value = new Date().toISOString().slice(0, 10);
+}
+
+function editarGd(id) {
+  const l = state.lancamentosDiarios.find((x) => x.id === id);
+  if (!l) return toast('Lançamento não encontrado', 'er');
+  $('gdFUsina').value = l.usinaId;
+  atualizarGdFSkidSelect();
+  if (l.skidId) $('gdFSkid').value = l.skidId;
+  $('gdFData').value = l.data;
+  $('gdFGen').value = l.geracao;
+  $('gdFIrr').value = l.irrad || '';
+  $('gdFPR').value = l.pr || '';
+  $('gdFDisp').value = l.disp || '';
+  $('gdFObs').value = l.obs || '';
+  $('gdEditId').value = l.id;
+  $('gdFormTitle').innerHTML = `<i class="fas fa-edit" style="color:var(--p)"></i> Editar Lançamento — ${l.usinaNome} (${fmtDate(l.data)})`;
+  $('gdFormTitle').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function deletarGd(id) {
+  if (!confirm('Excluir lançamento diário?')) return;
+  try {
+    await api.delete('/geracao-diaria/' + id);
+    toast('Lançamento diário excluído', 'wn');
+    await renderGeracaoDiaria();
+  } catch (e) {
+    toast(e.message, 'er');
+  }
+}
+
+// =====================================================
 // USUÁRIOS (admin)
 // =====================================================
 async function renderUsuarios() {
@@ -3004,6 +3301,17 @@ function setupEventos() {
     // Recarrega matriz com defaults do novo role (sem overrides)
     renderUserPermsMatriz($('uRole').value, []);
   });
+
+  // Geração Diária (admin — teste)
+  $('btnGdApply')?.addEventListener('click', renderGeracaoDiaria);
+  $('gdUsina')?.addEventListener('change', () => {
+    atualizarGdSkidSelect();
+    renderGeracaoDiaria();
+  });
+  ['gdAno', 'gdMes', 'gdSkid'].forEach((id) => $(id)?.addEventListener('change', renderGeracaoDiaria));
+  $('gdFUsina')?.addEventListener('change', atualizarGdFSkidSelect);
+  $('btnGdSave')?.addEventListener('click', salvarGd);
+  $('btnGdClear')?.addEventListener('click', limparGdForm);
 
   // Fit Energia
   $('btnFitUpload').addEventListener('click', abrirFitModal);

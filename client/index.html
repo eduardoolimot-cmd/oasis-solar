@@ -33,6 +33,7 @@
     <div class="nav-item" data-section="relatorio"><i class="fas fa-file-alt"></i>Relatório</div>
     <div class="sb-lbl" data-role="ADMIN">Administração</div>
     <div class="nav-item" data-section="usuarios" data-role="ADMIN"><i class="fas fa-users-cog"></i>Usuários</div>
+    <div class="nav-item" data-section="geracao-diaria" data-role="ADMIN"><i class="fas fa-calendar-day"></i>Geração Diária <span style="font-size:8.5px;text-transform:uppercase;letter-spacing:.5px;padding:1px 5px;border-radius:4px;background:rgba(245,158,11,.25);color:#FFD666;margin-left:5px">Teste</span></div>
   </nav>
   <div class="sb-foot">
     <div class="user-badge" id="userBadge" title="Clique para sair">
@@ -450,6 +451,79 @@
         </thead>
         <tbody id="userTbl"></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- GERAÇÃO DIÁRIA (admin only — recurso em teste) -->
+  <div id="sec-geracao-diaria" class="section">
+    <div class="sec-bar">
+      <div><div class="sec-title">Geração Diária <span class="pill p-wn" style="margin-left:6px"><i class="fas fa-flask"></i> Teste</span></div><div class="sec-desc">Mesmas informações do painel principal, divididas por dia</div></div>
+    </div>
+    <div class="alert alert-wn"><i class="fas fa-flask"></i><div>Recurso em teste, restrito a administradores. Os lançamentos diários são carregados separadamente e não afetam os lançamentos mensais do painel principal.</div></div>
+
+    <div class="fbar">
+      <span class="flbl"><i class="fas fa-filter"></i> Filtros</span>
+      <select class="fsel" id="gdAno"></select>
+      <select class="fsel" id="gdMes">
+        <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option>
+        <option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option>
+        <option value="07">Jul</option><option value="08">Ago</option><option value="09">Set</option>
+        <option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
+      </select>
+      <select class="fsel" id="gdUsina"><option value="">Todas as Usinas</option></select>
+      <select class="fsel" id="gdSkid"><option value="">Todos os SKIDs</option></select>
+      <button class="btn btn-p" id="btnGdApply"><i class="fas fa-search"></i> Aplicar</button>
+    </div>
+
+    <div class="kpi-grid" id="gdKpiGrid" style="grid-template-columns:repeat(4,1fr)"></div>
+
+    <div class="ch-grid">
+      <div class="ch-card">
+        <div class="ch-head">
+          <div><div class="ch-title">Geração Diária × Prevista</div><div class="ch-sub" id="gdChartSub">—</div></div>
+        </div>
+        <canvas id="gdMainChart"></canvas>
+      </div>
+      <div class="ch-card">
+        <div class="ch-head">
+          <div><div class="ch-title">Por Usina</div><div class="ch-sub">Participação na geração</div></div>
+        </div>
+        <canvas id="gdPieChart"></canvas>
+      </div>
+    </div>
+
+    <div class="tcard">
+      <div class="thead-bar"><div class="tcard-title">Detalhamento Dia a Dia</div></div>
+      <table><thead><tr><th>Dia</th><th>Geração Real</th><th>Geração Prev.</th><th>Variação</th><th>Irradiação</th><th>PR</th><th>Disponib.</th></tr></thead><tbody id="gdDiaTblBody"></tbody></table>
+    </div>
+
+    <div class="tcard">
+      <div class="thead-bar"><div class="tcard-title">Desempenho por Usina</div></div>
+      <table><thead><tr><th>Usina</th><th>Potência</th><th>Geração Real</th><th>Prev. (c/ deg.)</th><th>Yield</th><th>PR</th><th>Disp.</th></tr></thead><tbody id="gdUsinaTblBody"></tbody></table>
+    </div>
+
+    <div class="tcard" style="padding:20px">
+      <div style="font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:7px" id="gdFormTitle"><i class="fas fa-upload" style="color:var(--p)"></i> Novo Lançamento Diário</div>
+      <input type="hidden" id="gdEditId">
+      <div class="fg">
+        <div class="fgrp"><label class="flabel">Usina <span class="req">*</span></label><select class="fselect" id="gdFUsina"></select></div>
+        <div class="fgrp"><label class="flabel">SKID</label><select class="fselect" id="gdFSkid"><option value="">Geral (sem SKID)</option></select></div>
+        <div class="fgrp"><label class="flabel">Data <span class="req">*</span></label><input type="date" class="finput" id="gdFData"></div>
+        <div class="fgrp"><label class="flabel">Geração Real (kWh) <span class="req">*</span></label><input type="number" class="finput" id="gdFGen" placeholder="Ex: 6200"></div>
+        <div class="fgrp"><label class="flabel">Irradiação (kWh/m²)</label><input type="number" class="finput" id="gdFIrr" step="0.1"></div>
+        <div class="fgrp"><label class="flabel">PR (%)</label><input type="number" class="finput" id="gdFPR" step="0.1" min="0" max="100"></div>
+        <div class="fgrp"><label class="flabel">Disponibilidade (%)</label><input type="number" class="finput" id="gdFDisp" step="0.1"></div>
+        <div class="fgrp"><label class="flabel">Observações</label><input type="text" class="finput" id="gdFObs"></div>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:16px;padding-top:13px;border-top:1px solid var(--bd)">
+        <button class="btn btn-p" id="btnGdSave"><i class="fas fa-save"></i> Salvar</button>
+        <button class="btn btn-o" id="btnGdClear"><i class="fas fa-eraser"></i> Limpar / Cancelar</button>
+      </div>
+    </div>
+
+    <div class="tcard">
+      <div class="thead-bar"><div class="tcard-title">Histórico de Lançamentos Diários</div></div>
+      <table><thead><tr><th>Usina</th><th>SKID</th><th>Data</th><th>Geração (kWh)</th><th>Irrad.</th><th>PR</th><th>Disp.</th><th>Obs.</th><th></th></tr></thead><tbody id="gdHist"></tbody></table>
     </div>
   </div>
 
