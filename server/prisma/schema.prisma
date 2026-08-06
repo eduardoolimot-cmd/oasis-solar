@@ -45,7 +45,7 @@ model User {
 // Se tem registro, este SOBREPÕE o default.
 model UserPermission {
   userId     String
-  secao      String // 'dashboard'|'cadastro'|'lancamento'|'importar'|'manutencao'|'financeiro'|'fit'|'comparativo'|'relatorio'|'usuarios'
+  secao      String // 'dashboard'|'cadastro'|'lancamento'|'importar'|'manutencao'|'financeiro'|'fit'|'comparativo'|'relatorio'|'usuarios'|'geracao-diaria'
   podeVer    Boolean @default(true)
   podeEditar Boolean @default(false)
 
@@ -183,8 +183,8 @@ model Lancamento {
   @@index([usinaId, periodo])
 }
 
-// Geração diária — recurso em teste, dado separado do Lancamento mensal.
-// Alimenta a aba "Geração Diária" (restrita a ADMIN).
+// Geração diária — dado independente do Lancamento mensal.
+// Alimenta a aba "Geração Diária" do painel.
 model LancamentoDiario {
   id      String   @id @default(cuid())
   usinaId String

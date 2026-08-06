@@ -19,7 +19,7 @@ const state = {
   financeiro: [],
   notificacoes: [],
   socket: null,
-  charts: { main: null, pie: null, fin: null, finCat: null, irrad: null, yieldCh: null, comp: null, fit: null, gdMain: null, gdPie: null },
+  charts: { main: null, pie: null, fin: null, finCat: null, irrad: null, yieldCh: null, comp: null, fit: null, gdMain: null, gdPie: null, gdIrrad: null },
   finCatTipo: 'des', // 'des' = despesas (default), 'rec' = receitas
   dragManutId: null,
 };
@@ -132,7 +132,7 @@ const SECTIONS = {
   comparativo: { t: 'Comparativo', d: 'Comparação entre usinas' },
   relatorio: { t: 'Relatório', d: 'Geração de PDFs' },
   usuarios: { t: 'Gerenciamento de Usuários', d: 'Acesso administrativo' },
-  'geracao-diaria': { t: 'Geração Diária', d: 'Painel diário (teste) — restrito a ADMIN' },
+  'geracao-diaria': { t: 'Geração Diária', d: 'Painel diário de geração' },
 };
 
 function setupNav() {
@@ -260,6 +260,23 @@ function atualizarGdFSkidSelect() {
     }
   }
   sel.innerHTML = html;
+}
+
+// PR = Geração / (Potência Pico × Irradiação) — recalculado a cada mudança;
+// o valor final e autoritativo é sempre recalculado de novo no servidor.
+function atualizarGdPRCalculado() {
+  const usinaId = $('gdFUsina')?.value || '';
+  const skidId = $('gdFSkid')?.value || '';
+  const u = state.usinas.find((x) => x.id === usinaId);
+  let kwp = u?.kwp || 0;
+  if (skidId) {
+    const s = u?.skids?.find((x) => x.id === skidId);
+    if (s) kwp = s.kwp;
+  }
+  const gen = parseFloat($('gdFGen')?.value) || 0;
+  const irr = parseFloat($('gdFIrr')?.value) || 0;
+  const pr = kwp && irr ? (gen / (kwp * irr)) * 100 : 0;
+  if ($('gdFPR')) $('gdFPR').value = pr ? pr.toFixed(2) : '';
 }
 
 // =====================================================
@@ -2582,13 +2599,9 @@ function exportarFinCSV() {
 }
 
 // =====================================================
-// GERAÇÃO DIÁRIA (admin — recurso em teste)
+// GERAÇÃO DIÁRIA
 // =====================================================
 async function renderGeracaoDiaria() {
-  if (state.user.role !== 'ADMIN') {
-    $('sec-geracao-diaria').innerHTML = '<div class="alert alert-er">Acesso restrito a administradores</div>';
-    return;
-  }
   const ano = $('gdAno').value;
   const mes = $('gdMes').value;
   const usinaId = $('gdUsina').value;
@@ -2613,6 +2626,7 @@ async function renderGeracaoDiaria() {
   renderGdUsinaTable(data.porUsina);
   renderGdMainChart(data.diasData);
   renderGdPieChart(data.distribuicao);
+  renderGdIrradChart(data.diasData);
 
   await renderGdHist();
 }
@@ -2743,6 +2757,49 @@ function renderGdPieChart(distrib) {
   });
 }
 
+function renderGdIrradChart(dias) {
+  const ctx = $('gdIrradChart')?.getContext('2d');
+  if (!ctx) return;
+  if (state.charts.gdIrrad) state.charts.gdIrrad.destroy();
+  state.charts.gdIrrad = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dias.map((d) => String(d.dia).padStart(2, '0')),
+      datasets: [
+        {
+          label: 'Irradiação Realizada (kWh/m²)',
+          data: dias.map((d) => d.irrad),
+          borderColor: '#00B4D8',
+          backgroundColor: 'rgba(0,180,216,.12)',
+          borderWidth: 2,
+          pointRadius: 2,
+          fill: true,
+          tension: 0.35,
+        },
+        {
+          label: 'Irradiação Prevista (kWh/m²)',
+          data: dias.map((d) => d.irradPrev),
+          borderColor: '#F59E0B',
+          borderWidth: 2,
+          borderDash: [4, 4],
+          pointRadius: 0,
+          fill: false,
+          tension: 0.35,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 12 } } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: chartGrid() }, ticks: { callback: (v) => v + ' kWh/m²' } },
+        x: { grid: { display: false } },
+      },
+    },
+  });
+}
+
 async function renderGdHist() {
   const usinaId = $('gdUsina').value;
   const ano = $('gdAno').value;
@@ -2751,6 +2808,7 @@ async function renderGdHist() {
   if (usinaId) qs.set('usinaId', usinaId);
   state.lancamentosDiarios = await api.get('/geracao-diaria?' + qs);
 
+  const canEdit = ['ADMIN', 'TECNICO'].includes(state.user.role);
   $('gdHist').innerHTML = state.lancamentosDiarios.length
     ? state.lancamentosDiarios.map((l) => `
       <tr>
@@ -2762,10 +2820,9 @@ async function renderGdHist() {
         <td><span class="pill ${l.pr >= 81 ? 'p-ok' : 'p-wn'}">${l.pr?.toFixed(1) || '0'}%</span></td>
         <td><span class="pill ${!l.disp || l.disp >= 96 ? 'p-ok' : 'p-wn'}">${l.disp ? l.disp.toFixed(1) + '%' : '—'}</span></td>
         <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${l.obs || ''}">${l.obs || '—'}</td>
-        <td style="white-space:nowrap">
+        <td style="white-space:nowrap">${canEdit ? `
           <button class="bico" data-edit-gd="${l.id}" title="Editar"><i class="fas fa-edit"></i></button>
-          <button class="bico er" data-del-gd="${l.id}" title="Excluir"><i class="fas fa-trash"></i></button>
-        </td>
+          <button class="bico er" data-del-gd="${l.id}" title="Excluir"><i class="fas fa-trash"></i></button>` : ''}</td>
       </tr>`).join('')
     : '<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:22px">Nenhum registro</td></tr>';
   $$('[data-del-gd]').forEach((b) => b.addEventListener('click', () => deletarGd(b.dataset.delGd)));
@@ -2905,6 +2962,7 @@ const SECOES_LBL = {
   comparativo: 'Comparativo',
   relatorio: 'Relatório',
   usuarios: 'Usuários (Admin)',
+  'geracao-diaria': 'Geração Diária',
 };
 const SECOES_ORDER = Object.keys(SECOES_LBL);
 
@@ -3302,14 +3360,19 @@ function setupEventos() {
     renderUserPermsMatriz($('uRole').value, []);
   });
 
-  // Geração Diária (admin — teste)
+  // Geração Diária
   $('btnGdApply')?.addEventListener('click', renderGeracaoDiaria);
   $('gdUsina')?.addEventListener('change', () => {
     atualizarGdSkidSelect();
     renderGeracaoDiaria();
   });
   ['gdAno', 'gdMes', 'gdSkid'].forEach((id) => $(id)?.addEventListener('change', renderGeracaoDiaria));
-  $('gdFUsina')?.addEventListener('change', atualizarGdFSkidSelect);
+  $('gdFUsina')?.addEventListener('change', () => {
+    atualizarGdFSkidSelect();
+    atualizarGdPRCalculado();
+  });
+  $('gdFSkid')?.addEventListener('change', atualizarGdPRCalculado);
+  ['gdFGen', 'gdFIrr'].forEach((id) => $(id)?.addEventListener('input', atualizarGdPRCalculado));
   $('btnGdSave')?.addEventListener('click', salvarGd);
   $('btnGdClear')?.addEventListener('click', limparGdForm);
 

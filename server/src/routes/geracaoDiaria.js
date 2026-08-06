@@ -1,8 +1,8 @@
 // =================================================
-// Geração Diária — recurso EM TESTE, restrito a ADMIN.
-// CRUD de lançamentos diários + KPIs agregados por dia,
-// espelhando as informações do painel principal (mensal),
-// porém divididas em dias dentro de um único mês.
+// Geração Diária — CRUD de lançamentos diários + KPIs
+// agregados por dia, espelhando as informações do painel
+// principal (mensal), porém divididas em dias dentro de
+// um único mês. Dado independente do Lancamento mensal.
 // =================================================
 import { Router } from 'express';
 import { prisma } from '../db.js';
@@ -12,12 +12,12 @@ import {
   lancamentoDiarioFiltroSchema,
   dashboardDiarioFiltroSchema,
 } from '../lib/schemas.js';
-import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { requireAuth, requireAdminOrTecnico } from '../middleware/auth.js';
 import { fatorDegradacao } from '../lib/degradacao.js';
+import { aplicarFiltroUsinas, exigirAcessoUsina } from '../lib/access.js';
 
 const router = Router();
-// Toda a aba de Geração Diária é restrita a ADMIN enquanto estiver em teste.
-router.use(requireAuth, requireAdmin);
+router.use(requireAuth);
 
 const INCLUDE = {
   usina: { select: { id: true, nome: true } },
@@ -44,13 +44,26 @@ function shape(l) {
   };
 }
 
+// PR = Geração / (Potência Pico × Irradiação) — calculado sempre no servidor,
+// nunca confiando no valor enviado pelo cliente.
+function calcularPR(geracao, irrad, kwp) {
+  if (!kwp || !irrad) return 0;
+  return +((geracao / (kwp * irrad)) * 100).toFixed(2);
+}
+
 // ---------- GET /api/geracao-diaria/kpis?ano=&mes=&usinaId=&skidId= ----------
 router.get(
   '/kpis',
   asyncRoute(async (req, res) => {
     const f = dashboardDiarioFiltroSchema.parse(req.query);
+    if (f.usinaId) exigirAcessoUsina(f.usinaId, req);
 
-    const usinaWhere = f.usinaId ? { id: f.usinaId } : {};
+    const allowed = req.user.allowedUsinaIds;
+    const usinaWhere = f.usinaId
+      ? { id: f.usinaId }
+      : allowed
+      ? { id: { in: allowed } }
+      : {};
     const usinas = await prisma.usina.findMany({
       where: usinaWhere,
       include: { previsoes: true, skids: true },
@@ -66,9 +79,8 @@ router.get(
       usinas.map((u) => [u.id, fatorDegradacao(u.inicio, anoCalculo)]),
     );
 
-    const lanWhere = { data: { gte: dataIni, lt: dataFim } };
+    const lanWhere = { data: { gte: dataIni, lt: dataFim }, usinaId: { in: usinas.map((u) => u.id) } };
     if (f.usinaId) lanWhere.usinaId = f.usinaId;
-    else lanWhere.usinaId = { in: usinas.map((u) => u.id) };
     if (f.skidId) lanWhere.skidId = f.skidId;
 
     const lancamentos = await prisma.lancamentoDiario.findMany({
@@ -87,16 +99,24 @@ router.get(
       ? (skidFiltrado?.kwp || 0)
       : usinas.reduce((s, u) => s + (u.kwp || 0), 0);
 
-    // Previsão mensal (já com degradação) e sua fração diária uniforme.
+    // Previsão mensal de geração (já com degradação) e sua fração diária uniforme.
     // Simplificação: distribui o previsto do mês igualmente pelos dias
-    // (não há previsão nativa por dia — este recurso está em teste).
+    // (não há previsão nativa por dia).
     let prevMensal = 0;
+    let irradPrevMensal = 0;
+    let countIrrPrev = 0;
     usinas.forEach((u) => {
       const prevs = previsoesParaUsina(u);
       const genU = prevs.reduce((s, p) => s + (p.gen || 0), 0);
       prevMensal += genU * degPorUsina[u.id];
+      const irrVals = prevs.filter((p) => p.irrad).map((p) => p.irrad);
+      if (irrVals.length) {
+        irradPrevMensal += irrVals.reduce((s, v) => s + v, 0) / irrVals.length;
+        countIrrPrev++;
+      }
     });
     const prevDiaria = prevMensal / diasNoMes;
+    const irradPrevDiaria = (countIrrPrev > 0 ? irradPrevMensal / countIrrPrev : 0) / diasNoMes;
 
     // ---------- Geração total do mês (real) ----------
     const totalGen = lancamentos.reduce((s, l) => s + l.geracao, 0);
@@ -125,6 +145,7 @@ router.get(
         gerPrev: +prevDiaria.toFixed(2),
         variacao: prevDiaria ? +(((gerReal - prevDiaria) / prevDiaria) * 100).toFixed(1) : 0,
         irrad: +irradReal.toFixed(2),
+        irradPrev: +irradPrevDiaria.toFixed(2),
         pr: ls.length ? +(ls.reduce((s, l) => s + l.pr, 0) / ls.length).toFixed(2) : 0,
         disp: ls.length ? +(ls.reduce((s, l) => s + l.disp, 0) / ls.length).toFixed(2) : 0,
       });
@@ -198,6 +219,7 @@ router.get(
       const ano = parseInt(filtros.ano);
       where.data = { gte: new Date(Date.UTC(ano, 0, 1)), lt: new Date(Date.UTC(ano + 1, 0, 1)) };
     }
+    aplicarFiltroUsinas(where, req);
 
     const rows = await prisma.lancamentoDiario.findMany({
       where,
@@ -211,18 +233,23 @@ router.get(
 // ---------- POST /api/geracao-diaria ----------
 router.post(
   '/',
+  requireAdminOrTecnico,
   asyncRoute(async (req, res) => {
     const data = lancamentoDiarioSchema.parse(req.body);
+    exigirAcessoUsina(data.usinaId, req);
 
     const usina = await prisma.usina.findUnique({ where: { id: data.usinaId } });
     if (!usina) throw httpErrors.badRequest('Usina inválida');
 
+    let kwpEfetivo = usina.kwp;
     if (data.skidId) {
       const skid = await prisma.skid.findUnique({ where: { id: data.skidId } });
       if (!skid || skid.usinaId !== data.usinaId) {
         throw httpErrors.badRequest('SKID inválido para esta usina');
       }
+      kwpEfetivo = skid.kwp;
     }
+    data.pr = calcularPR(data.geracao, data.irrad, kwpEfetivo);
 
     const created = await prisma.lancamentoDiario.create({
       data: { ...data, criadoPorId: req.user.id },
@@ -236,10 +263,25 @@ router.post(
 // ---------- PUT /api/geracao-diaria/:id ----------
 router.put(
   '/:id',
+  requireAdminOrTecnico,
   asyncRoute(async (req, res) => {
     const data = lancamentoDiarioSchema.parse(req.body);
+    exigirAcessoUsina(data.usinaId, req);
     const exists = await prisma.lancamentoDiario.findUnique({ where: { id: req.params.id } });
     if (!exists) throw httpErrors.notFound('Lançamento diário não encontrado');
+
+    const usina = await prisma.usina.findUnique({ where: { id: data.usinaId } });
+    if (!usina) throw httpErrors.badRequest('Usina inválida');
+
+    let kwpEfetivo = usina.kwp;
+    if (data.skidId) {
+      const skid = await prisma.skid.findUnique({ where: { id: data.skidId } });
+      if (!skid || skid.usinaId !== data.usinaId) {
+        throw httpErrors.badRequest('SKID inválido para esta usina');
+      }
+      kwpEfetivo = skid.kwp;
+    }
+    data.pr = calcularPR(data.geracao, data.irrad, kwpEfetivo);
 
     const updated = await prisma.lancamentoDiario.update({
       where: { id: req.params.id },
@@ -253,9 +295,11 @@ router.put(
 // ---------- DELETE /api/geracao-diaria/:id ----------
 router.delete(
   '/:id',
+  requireAdminOrTecnico,
   asyncRoute(async (req, res) => {
     const exists = await prisma.lancamentoDiario.findUnique({ where: { id: req.params.id } });
     if (!exists) throw httpErrors.notFound('Lançamento diário não encontrado');
+    exigirAcessoUsina(exists.usinaId, req);
 
     await prisma.lancamentoDiario.delete({ where: { id: req.params.id } });
     res.json({ ok: true });

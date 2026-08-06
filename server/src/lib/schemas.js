@@ -70,7 +70,7 @@ export const lancamentoFiltroSchema = z.object({
   mes: z.string().regex(/^(0[1-9]|1[0-2])$/).optional(),
 });
 
-// ---------- Lançamento diário de geração (recurso em teste, ADMIN) ----------
+// ---------- Lançamento diário de geração ----------
 // data: "YYYY-MM-DD"
 export const lancamentoDiarioSchema = z.object({
   usinaId: z.string().min(1, 'Usina é obrigatória'),

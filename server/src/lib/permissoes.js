@@ -8,7 +8,7 @@
 export const SECOES = [
   'dashboard', 'cadastro', 'lancamento', 'importar',
   'manutencao', 'financeiro', 'fit',
-  'comparativo', 'relatorio', 'usuarios',
+  'comparativo', 'relatorio', 'usuarios', 'geracao-diaria',
 ];
 
 // Defaults por role
