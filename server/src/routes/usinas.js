@@ -50,6 +50,7 @@ function shapeUsina(u) {
         irrad: p.irrad,
         pr: p.pr,
       })),
+      inversores: (s.inversores || []).map((i) => ({ id: i.id, nome: i.nome })),
     })),
     previsoes: (u.previsoes || [])
       .filter((p) => p.skidId === null)
@@ -61,7 +62,10 @@ function shapeUsina(u) {
 
 const INCLUDE_FULL = {
   skids: {
-    include: { previsoes: { orderBy: { mes: 'asc' } } },
+    include: {
+      previsoes: { orderBy: { mes: 'asc' } },
+      inversores: { orderBy: { nome: 'asc' } },
+    },
     orderBy: { nome: 'asc' },
   },
   previsoes: { orderBy: { mes: 'asc' } },
@@ -152,6 +156,11 @@ router.post(
             })),
           });
         }
+        if (s.inversores?.length) {
+          await tx.inversor.createMany({
+            data: s.inversores.map((i) => ({ skidId: skid.id, nome: i.nome })),
+          });
+        }
       }
 
       return usina.id;
@@ -233,7 +242,7 @@ router.put(
         });
       }
 
-      // 4. skids (com suas previsoes)
+      // 4. skids (com suas previsoes e inversores)
       for (const s of data.skids) {
         const skid = await tx.skid.create({
           data: { usinaId: id, nome: s.nome, kwp: s.kwp },
@@ -248,6 +257,11 @@ router.put(
               irrad: p.irrad,
               pr: p.pr,
             })),
+          });
+        }
+        if (s.inversores?.length) {
+          await tx.inversor.createMany({
+            data: s.inversores.map((i) => ({ skidId: skid.id, nome: i.nome })),
           });
         }
       }

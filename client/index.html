@@ -516,6 +516,7 @@
       <div class="fg">
         <div class="fgrp"><label class="flabel">Usina <span class="req">*</span></label><select class="fselect" id="gdFUsina"></select></div>
         <div class="fgrp"><label class="flabel">SKID</label><select class="fselect" id="gdFSkid"><option value="">Geral (sem SKID)</option></select></div>
+        <div class="fgrp"><label class="flabel">Inversor</label><select class="fselect" id="gdFInversor" disabled><option value="">Geral do SKID (sem inversor)</option></select></div>
         <div class="fgrp"><label class="flabel">Data <span class="req">*</span></label><input type="date" class="finput" id="gdFData"></div>
         <div class="fgrp"><label class="flabel">Geração Real (kWh) <span class="req">*</span></label><input type="number" class="finput" id="gdFGen" placeholder="Ex: 6200"></div>
         <div class="fgrp"><label class="flabel">Irradiação (kWh/m²)</label><input type="number" class="finput" id="gdFIrr" step="0.1"></div>
@@ -530,8 +531,11 @@
     </div>
 
     <div class="tcard">
-      <div class="thead-bar"><div class="tcard-title">Histórico de Lançamentos Diários</div></div>
-      <table><thead><tr><th>Usina</th><th>SKID</th><th>Data</th><th>Geração (kWh)</th><th>Irrad.</th><th>PR</th><th>Disp.</th><th>Obs.</th><th></th></tr></thead><tbody id="gdHist"></tbody></table>
+      <div class="thead-bar">
+        <div class="tcard-title">Histórico de Lançamentos Diários</div>
+        <select class="fsel" id="gdHistUsina"><option value="">Todas as usinas</option></select>
+      </div>
+      <table><thead><tr><th>Usina</th><th>SKID</th><th>Inversor</th><th>Data</th><th>Geração (kWh)</th><th>Irrad.</th><th>PR</th><th>Disp.</th><th>Obs.</th><th></th></tr></thead><tbody id="gdHist"></tbody></table>
     </div>
   </div>
 

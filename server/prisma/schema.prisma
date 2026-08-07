@@ -140,8 +140,25 @@ model Skid {
   previsoes         Previsao[]
   lancamentos       Lancamento[]
   lancamentosDiarios LancamentoDiario[]
+  inversores        Inversor[]
 
   @@unique([usinaId, nome])
+}
+
+// Inversor — nível abaixo do SKID, usado apenas na Geração Diária.
+// A soma da geração dos inversores de um SKID é a geração do SKID;
+// a soma dos SKIDs é a geração da usina. PR só é calculado no nível
+// da usina (não por inversor nem por SKID).
+model Inversor {
+  id        String   @id @default(cuid())
+  skidId    String
+  nome      String
+  createdAt DateTime @default(now())
+
+  skid               Skid               @relation(fields: [skidId], references: [id], onDelete: Cascade)
+  lancamentosDiarios LancamentoDiario[]
+
+  @@unique([skidId, nome])
 }
 
 model Previsao {
@@ -186,25 +203,27 @@ model Lancamento {
 // Geração diária — dado independente do Lancamento mensal.
 // Alimenta a aba "Geração Diária" do painel.
 model LancamentoDiario {
-  id      String   @id @default(cuid())
-  usinaId String
-  skidId  String?
-  data    DateTime
-  geracao Float
-  irrad   Float    @default(0)
-  pr      Float    @default(0)
-  disp    Float    @default(0)
-  obs     String?
+  id         String   @id @default(cuid())
+  usinaId    String
+  skidId     String?
+  inversorId String?
+  data       DateTime
+  geracao    Float
+  irrad      Float    @default(0)
+  pr         Float    @default(0)
+  disp       Float    @default(0)
+  obs        String?
 
   criadoPorId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  usina     Usina @relation(fields: [usinaId], references: [id], onDelete: Cascade)
-  skid      Skid? @relation(fields: [skidId], references: [id], onDelete: SetNull)
-  criadoPor User? @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
+  usina     Usina     @relation(fields: [usinaId], references: [id], onDelete: Cascade)
+  skid      Skid?     @relation(fields: [skidId], references: [id], onDelete: SetNull)
+  inversor  Inversor? @relation(fields: [inversorId], references: [id], onDelete: SetNull)
+  criadoPor User?     @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
 
-  @@unique([usinaId, skidId, data])
+  @@unique([usinaId, skidId, inversorId, data])
   @@index([data])
   @@index([usinaId, data])
 }

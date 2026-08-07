@@ -14,11 +14,17 @@ export const previsaoSchema = z.object({
   pr: z.coerce.number().min(0).max(100).default(0),
 });
 
+// ---------- Inversor (nível abaixo do SKID, usado na Geração Diária) ----------
+export const inversorSchema = z.object({
+  nome: z.string().trim().min(1, 'Nome do inversor é obrigatório'),
+});
+
 // ---------- Skid ----------
 export const skidSchema = z.object({
   nome: z.string().trim().min(1, 'Nome do SKID é obrigatório'),
   kwp: z.coerce.number().min(0).default(0),
   previsoes: z.array(previsaoSchema).optional().default([]),
+  inversores: z.array(inversorSchema).optional().default([]),
 });
 
 // ---------- Usina (create/update) ----------
@@ -75,6 +81,7 @@ export const lancamentoFiltroSchema = z.object({
 export const lancamentoDiarioSchema = z.object({
   usinaId: z.string().min(1, 'Usina é obrigatória'),
   skidId: z.string().optional().nullable(),
+  inversorId: z.string().optional().nullable(),
   data: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD')

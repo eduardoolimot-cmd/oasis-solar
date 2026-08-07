@@ -200,6 +200,7 @@ async function carregarUsinas() {
   if ($('gdUsina')) {
     preencherSelectUsinas('gdUsina', state.usinas, { prefix: 'Todas as Usinas' });
     preencherSelectUsinas('gdFUsina', state.usinas, { prefix: '— Selecionar —' });
+    preencherSelectUsinas('gdHistUsina', state.usinas, { prefix: 'Todas as usinas' });
   }
   atualizarSkidSelect();
 }
@@ -248,6 +249,15 @@ function atualizarGdSkidSelect() {
   sel.innerHTML = html;
 }
 
+// fmtDate() converte pra fuso local antes de formatar, o que desloca em -1 dia
+// datas "YYYY-MM-DD" puras (meia-noite UTC) em fusos negativos (ex: Brasil).
+// Como aqui a data É o dado principal, formata direto a partir da string.
+function fmtDiaGD(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
 function atualizarGdFSkidSelect() {
   const usinaId = $('gdFUsina')?.value || '';
   const sel = $('gdFSkid');
@@ -262,21 +272,44 @@ function atualizarGdFSkidSelect() {
   sel.innerHTML = html;
 }
 
-// PR = Geração / (Potência Pico × Irradiação) — recalculado a cada mudança;
-// o valor final e autoritativo é sempre recalculado de novo no servidor.
+function atualizarGdFInversorSelect() {
+  const usinaId = $('gdFUsina')?.value || '';
+  const skidId = $('gdFSkid')?.value || '';
+  const sel = $('gdFInversor');
+  if (!sel) return;
+  let html = '<option value="">Geral do SKID (sem inversor)</option>';
+  if (usinaId && skidId) {
+    const u = state.usinas.find((x) => x.id === usinaId);
+    const s = u?.skids?.find((x) => x.id === skidId);
+    if (s?.inversores?.length) {
+      html += s.inversores.map((i) => `<option value="${i.id}">${i.nome}</option>`).join('');
+    }
+  }
+  sel.innerHTML = html;
+  sel.disabled = !skidId;
+}
+
+// PR = Geração / (Potência Pico × Irradiação) — SEMPRE com o kWp da usina
+// inteira. Só é um valor válido para lançamentos sem SKID (nível usina);
+// lançamentos de SKID/inversor não têm PR individual — o PR real deles só
+// existe agregado no total da usina, calculado pelo servidor em /kpis.
 function atualizarGdPRCalculado() {
   const usinaId = $('gdFUsina')?.value || '';
   const skidId = $('gdFSkid')?.value || '';
-  const u = state.usinas.find((x) => x.id === usinaId);
-  let kwp = u?.kwp || 0;
+  const prField = $('gdFPR');
+  if (!prField) return;
   if (skidId) {
-    const s = u?.skids?.find((x) => x.id === skidId);
-    if (s) kwp = s.kwp;
+    prField.value = '';
+    prField.placeholder = 'N/A — calculado no total da usina';
+    return;
   }
+  prField.placeholder = '';
+  const u = state.usinas.find((x) => x.id === usinaId);
+  const kwp = u?.kwp || 0;
   const gen = parseFloat($('gdFGen')?.value) || 0;
   const irr = parseFloat($('gdFIrr')?.value) || 0;
   const pr = kwp && irr ? (gen / (kwp * irr)) * 100 : 0;
-  if ($('gdFPR')) $('gdFPR').value = pr ? pr.toFixed(2) : '';
+  prField.value = pr ? pr.toFixed(2) : '';
 }
 
 // =====================================================
@@ -711,9 +744,29 @@ function addSkidBlock(data) {
         <td><input class="sp" type="number" step="0.1" value="${p ? p.pr : ''}" style="width:100%;padding:2px 5px;border:1px solid var(--bd);border-radius:4px;font-size:11px"></td>
       </tr>`;
     }).join('')}</tbody></table>
+    <div style="margin-top:10px;padding-top:9px;border-top:1px dashed var(--bd)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <label class="flabel" style="margin:0">Inversores deste SKID</label>
+        <button type="button" class="btn btn-o btn-sm" data-add-inv style="padding:3px 9px;font-size:11px"><i class="fas fa-plus"></i> Inversor</button>
+      </div>
+      <div class="invList"></div>
+    </div>
   `;
   $('skidList').appendChild(div);
   div.querySelector('[data-rm]').addEventListener('click', () => div.remove());
+  const invList = div.querySelector('.invList');
+  (data?.inversores || []).forEach((i) => addInversorRow(invList, i));
+  div.querySelector('[data-add-inv]').addEventListener('click', () => addInversorRow(invList, null));
+}
+function addInversorRow(invList, data) {
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;margin-bottom:5px';
+  row.innerHTML = `
+    <input class="finput invNome" value="${data?.nome || ''}" placeholder="Ex: INV-01" style="flex:1;padding:5px 8px;font-size:12px">
+    <button type="button" class="bico er" data-rm-inv title="Remover"><i class="fas fa-times"></i></button>
+  `;
+  invList.appendChild(row);
+  row.querySelector('[data-rm-inv]').addEventListener('click', () => row.remove());
 }
 function lerSkids() {
   const arr = [];
@@ -731,7 +784,11 @@ function lerSkids() {
       const pr = parseFloat(sps[i]?.value) || 0;
       if (gen || irrad || pr) previsoes.push({ mes: i + 1, gen, irrad, pr });
     }
-    arr.push({ nome, kwp, previsoes });
+    const inversores = [...bl.querySelectorAll('.invNome')]
+      .map((inp) => inp.value.trim())
+      .filter(Boolean)
+      .map((nome) => ({ nome }));
+    arr.push({ nome, kwp, previsoes, inversores });
   });
   return arr;
 }
@@ -2801,7 +2858,7 @@ function renderGdIrradChart(dias) {
 }
 
 async function renderGdHist() {
-  const usinaId = $('gdUsina').value;
+  const usinaId = $('gdHistUsina').value;
   const ano = $('gdAno').value;
   const mes = $('gdMes').value;
   const qs = new URLSearchParams({ ano, mes });
@@ -2814,17 +2871,18 @@ async function renderGdHist() {
       <tr>
         <td><strong>${l.usinaNome}</strong></td>
         <td class="td2">${l.skidNome || '—'}</td>
-        <td>${fmtDate(l.data)}</td>
+        <td class="td2">${l.inversorNome || '—'}</td>
+        <td>${fmtDiaGD(l.data)}</td>
         <td><strong>${fmtNum(l.geracao)}</strong></td>
         <td>${l.irrad ? l.irrad.toFixed(1) : '—'} kWh/m²</td>
-        <td><span class="pill ${l.pr >= 81 ? 'p-ok' : 'p-wn'}">${l.pr?.toFixed(1) || '0'}%</span></td>
+        <td>${l.skidId ? '<span class="td2" title="PR só é calculado no total da usina">—</span>' : `<span class="pill ${l.pr >= 81 ? 'p-ok' : 'p-wn'}">${l.pr?.toFixed(1) || '0'}%</span>`}</td>
         <td><span class="pill ${!l.disp || l.disp >= 96 ? 'p-ok' : 'p-wn'}">${l.disp ? l.disp.toFixed(1) + '%' : '—'}</span></td>
         <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${l.obs || ''}">${l.obs || '—'}</td>
         <td style="white-space:nowrap">${canEdit ? `
           <button class="bico" data-edit-gd="${l.id}" title="Editar"><i class="fas fa-edit"></i></button>
           <button class="bico er" data-del-gd="${l.id}" title="Excluir"><i class="fas fa-trash"></i></button>` : ''}</td>
       </tr>`).join('')
-    : '<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:22px">Nenhum registro</td></tr>';
+    : '<tr><td colspan="10" style="text-align:center;color:var(--t3);padding:22px">Nenhum registro</td></tr>';
   $$('[data-del-gd]').forEach((b) => b.addEventListener('click', () => deletarGd(b.dataset.delGd)));
   $$('[data-edit-gd]').forEach((b) => b.addEventListener('click', () => editarGd(b.dataset.editGd)));
 }
@@ -2836,10 +2894,10 @@ async function salvarGd() {
   const payload = {
     usinaId,
     skidId: $('gdFSkid').value || null,
+    inversorId: $('gdFInversor').value || null,
     data: $('gdFData').value,
     geracao: parseFloat($('gdFGen').value),
     irrad: parseFloat($('gdFIrr').value) || 0,
-    pr: parseFloat($('gdFPR').value) || 0,
     disp: parseFloat($('gdFDisp').value) || 0,
     obs: $('gdFObs').value || null,
   };
@@ -2853,18 +2911,27 @@ async function salvarGd() {
       await api.post('/geracao-diaria', payload);
       toast('Lançamento diário salvo!', 'ok');
     }
-    limparGdForm();
+    // Mantém usina/SKID/data — é comum lançar vários inversores do mesmo
+    // SKID/dia em sequência. Limpar tudo fica a cargo do botão "Limpar".
+    limparGdForm(true);
     await renderGeracaoDiaria();
   } catch (e) {
     toast(e.message, 'er');
   }
 }
 
-function limparGdForm() {
-  ['gdFGen', 'gdFIrr', 'gdFPR', 'gdFDisp', 'gdFObs'].forEach((id) => ($(id).value = ''));
+function limparGdForm(manterContexto = false) {
+  ['gdFGen', 'gdFIrr', 'gdFDisp', 'gdFObs'].forEach((id) => ($(id).value = ''));
   $('gdEditId').value = '';
+  if (!manterContexto) {
+    $('gdFUsina').value = '';
+    atualizarGdFSkidSelect();
+    $('gdFData').value = new Date().toISOString().slice(0, 10);
+  }
+  $('gdFInversor').value = '';
+  atualizarGdFInversorSelect();
+  atualizarGdPRCalculado();
   $('gdFormTitle').innerHTML = '<i class="fas fa-upload" style="color:var(--p)"></i> Novo Lançamento Diário';
-  $('gdFData').value = new Date().toISOString().slice(0, 10);
 }
 
 function editarGd(id) {
@@ -2873,14 +2940,16 @@ function editarGd(id) {
   $('gdFUsina').value = l.usinaId;
   atualizarGdFSkidSelect();
   if (l.skidId) $('gdFSkid').value = l.skidId;
+  atualizarGdFInversorSelect();
+  if (l.inversorId) $('gdFInversor').value = l.inversorId;
   $('gdFData').value = l.data;
   $('gdFGen').value = l.geracao;
   $('gdFIrr').value = l.irrad || '';
-  $('gdFPR').value = l.pr || '';
   $('gdFDisp').value = l.disp || '';
   $('gdFObs').value = l.obs || '';
   $('gdEditId').value = l.id;
-  $('gdFormTitle').innerHTML = `<i class="fas fa-edit" style="color:var(--p)"></i> Editar Lançamento — ${l.usinaNome} (${fmtDate(l.data)})`;
+  atualizarGdPRCalculado();
+  $('gdFormTitle').innerHTML = `<i class="fas fa-edit" style="color:var(--p)"></i> Editar Lançamento — ${l.usinaNome} (${fmtDiaGD(l.data)})`;
   $('gdFormTitle').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
@@ -3367,11 +3436,16 @@ function setupEventos() {
     renderGeracaoDiaria();
   });
   ['gdAno', 'gdMes', 'gdSkid'].forEach((id) => $(id)?.addEventListener('change', renderGeracaoDiaria));
+  $('gdHistUsina')?.addEventListener('change', renderGdHist);
   $('gdFUsina')?.addEventListener('change', () => {
     atualizarGdFSkidSelect();
+    atualizarGdFInversorSelect();
     atualizarGdPRCalculado();
   });
-  $('gdFSkid')?.addEventListener('change', atualizarGdPRCalculado);
+  $('gdFSkid')?.addEventListener('change', () => {
+    atualizarGdFInversorSelect();
+    atualizarGdPRCalculado();
+  });
   ['gdFGen', 'gdFIrr'].forEach((id) => $(id)?.addEventListener('input', atualizarGdPRCalculado));
   $('btnGdSave')?.addEventListener('click', salvarGd);
   $('btnGdClear')?.addEventListener('click', limparGdForm);
