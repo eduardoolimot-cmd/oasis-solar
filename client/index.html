@@ -491,14 +491,6 @@
         <canvas id="gdPieChart"></canvas>
       </div>
     </div>
-    <div class="ch-grid" style="grid-template-columns:1fr">
-      <div class="ch-card">
-        <div class="ch-head">
-          <div><div class="ch-title">Irradiação Diária — Prevista × Realizada</div><div class="ch-sub">kWh/m² por dia</div></div>
-        </div>
-        <canvas id="gdIrradChart"></canvas>
-      </div>
-    </div>
 
     <div class="tcard">
       <div class="thead-bar"><div class="tcard-title">Detalhamento Dia a Dia</div></div>
@@ -561,6 +553,7 @@
         <div class="fgrp"><label class="flabel">Potência (kWp) <span class="req">*</span></label><input class="finput" type="number" id="cKwp"></div>
         <div class="fgrp"><label class="flabel">Início de Operação</label><input class="finput" type="date" id="cInicio"></div>
         <div class="fgrp"><label class="flabel">Localização</label><input class="finput" id="cLocal"></div>
+        <div class="fgrp" id="cUcWrap"><label class="flabel">UC (Unidade Consumidora)</label><input class="finput" id="cUc" placeholder="Ex: 1234567"></div>
         <div class="fgrp full"><label class="flabel">Observações</label><textarea class="ftarea" id="cObs"></textarea></div>
       </div>
     </div>

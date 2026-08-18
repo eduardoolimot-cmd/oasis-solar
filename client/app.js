@@ -19,7 +19,7 @@ const state = {
   financeiro: [],
   notificacoes: [],
   socket: null,
-  charts: { main: null, pie: null, fin: null, finCat: null, irrad: null, yieldCh: null, comp: null, fit: null, gdMain: null, gdPie: null, gdIrrad: null },
+  charts: { main: null, pie: null, fin: null, finCat: null, irrad: null, yieldCh: null, comp: null, fit: null, gdMain: null, gdPie: null },
   finCatTipo: 'des', // 'des' = despesas (default), 'rec' = receitas
   dragManutId: null,
 };
@@ -670,6 +670,7 @@ function abrirEditUsina(id) {
   $('cKwp').value = u.kwp;
   $('cInicio').value = u.inicio ? u.inicio.slice(0, 10) : '';
   $('cLocal').value = u.local || '';
+  $('cUc').value = u.uc || '';
   $('cObs').value = u.obs || '';
   $('cModM').value = u.modulos.modelo || '';
   $('cModQ').value = u.modulos.qtd || '';
@@ -682,16 +683,23 @@ function abrirEditUsina(id) {
   renderPrevTable(u.previsoes);
   $('skidList').innerHTML = '';
   (u.skids || []).forEach((s) => addSkidBlock(s));
+  atualizarCUcVisibilidade();
   openM('mUsina');
 }
 function resetUsinaForm() {
-  ['cNome', 'cKwp', 'cInicio', 'cLocal', 'cObs', 'cModM', 'cModQ', 'cModW', 'cModF', 'cInvM', 'cInvQ', 'cInvKw', 'cInvF'].forEach((id) => ($(id).value = ''));
+  ['cNome', 'cKwp', 'cInicio', 'cLocal', 'cUc', 'cObs', 'cModM', 'cModQ', 'cModW', 'cModF', 'cInvM', 'cInvQ', 'cInvKw', 'cInvF'].forEach((id) => ($(id).value = ''));
   $('cEditId').value = '';
   $('skidList').innerHTML = '';
   $$('.tabbtn').forEach((b) => b.classList.remove('active'));
   $$('.tabbtn[data-tab="tGeral"]')[0]?.classList.add('active');
   $$('.tabcontent').forEach((t) => (t.style.display = 'none'));
   $('tGeral').style.display = 'block';
+  atualizarCUcVisibilidade();
+}
+// A UC da usina só se aplica quando NÃO há SKIDs (com SKIDs, a UC é por SKID)
+function atualizarCUcVisibilidade() {
+  const temSkid = $('skidList').children.length > 0;
+  $('cUcWrap').style.display = temSkid ? 'none' : '';
 }
 function renderPrevTable(data) {
   $('prevBody').innerHTML = MO.map((m, i) => {
@@ -733,6 +741,7 @@ function addSkidBlock(data) {
     <div class="fg" style="margin-bottom:10px">
       <div class="fgrp"><label class="flabel">Identificação</label><input class="finput skidNome" value="${data?.nome || `SKID-0${idx}`}"></div>
       <div class="fgrp"><label class="flabel">Potência (kWp)</label><input class="finput skidKwp" type="number" value="${data?.kwp || ''}"></div>
+      <div class="fgrp"><label class="flabel">UC (Unidade Consumidora)</label><input class="finput skidUc" value="${data?.uc || ''}" placeholder="Ex: 1234567"></div>
     </div>
     <table style="width:100%;font-size:11px"><thead><tr><th>Mês</th><th>Ger.</th><th>Irrad.</th><th>PR</th></tr></thead>
     <tbody>${MO.map((m, i) => {
@@ -753,7 +762,11 @@ function addSkidBlock(data) {
     </div>
   `;
   $('skidList').appendChild(div);
-  div.querySelector('[data-rm]').addEventListener('click', () => div.remove());
+  div.querySelector('[data-rm]').addEventListener('click', () => {
+    div.remove();
+    atualizarCUcVisibilidade();
+  });
+  atualizarCUcVisibilidade();
   const invList = div.querySelector('.invList');
   (data?.inversores || []).forEach((i) => addInversorRow(invList, i));
   div.querySelector('[data-add-inv]').addEventListener('click', () => addInversorRow(invList, null));
@@ -774,6 +787,7 @@ function lerSkids() {
     const nome = bl.querySelector('.skidNome').value.trim();
     if (!nome) return;
     const kwp = parseFloat(bl.querySelector('.skidKwp').value) || 0;
+    const uc = bl.querySelector('.skidUc').value.trim() || null;
     const sgs = bl.querySelectorAll('.sg');
     const sis = bl.querySelectorAll('.si');
     const sps = bl.querySelectorAll('.sp');
@@ -788,7 +802,7 @@ function lerSkids() {
       .map((inp) => inp.value.trim())
       .filter(Boolean)
       .map((nome) => ({ nome }));
-    arr.push({ nome, kwp, previsoes, inversores });
+    arr.push({ nome, kwp, uc, previsoes, inversores });
   });
   return arr;
 }
@@ -858,6 +872,7 @@ async function salvarUsina() {
     kwp: parseFloat($('cKwp').value),
     inicio: $('cInicio').value || null,
     local: $('cLocal').value || null,
+    uc: $('cUc').value || null,
     obs: $('cObs').value || null,
     moduloModelo: $('cModM').value || null,
     moduloQtd: parseInt($('cModQ').value) || 0,
@@ -2683,7 +2698,6 @@ async function renderGeracaoDiaria() {
   renderGdUsinaTable(data.porUsina);
   renderGdMainChart(data.diasData);
   renderGdPieChart(data.distribuicao);
-  renderGdIrradChart(data.diasData);
 
   await renderGdHist();
 }
@@ -2761,27 +2775,45 @@ function renderGdMainChart(dias) {
   const ctx = $('gdMainChart').getContext('2d');
   if (state.charts.gdMain) state.charts.gdMain.destroy();
   state.charts.gdMain = new Chart(ctx, {
-    type: 'bar',
     data: {
       labels: dias.map((d) => String(d.dia).padStart(2, '0')),
       datasets: [
         {
+          type: 'bar',
           label: 'Geração Real (kWh)',
           data: dias.map((d) => d.gerReal),
           backgroundColor: 'rgba(0,87,184,.72)',
           borderColor: '#0057B8',
           borderWidth: 1.5,
           borderRadius: 4,
+          yAxisID: 'y',
+          order: 2,
         },
         {
+          type: 'line',
           label: 'Previsto (kWh)',
           data: dias.map((d) => d.gerPrev),
-          type: 'line',
           borderColor: '#00B4D8',
           borderWidth: 2,
           pointRadius: 2,
           fill: false,
           tension: 0.3,
+          yAxisID: 'y',
+          order: 1,
+        },
+        {
+          type: 'line',
+          label: 'Irradiação Realizada (kWh/m²)',
+          data: dias.map((d) => d.irrad),
+          borderColor: '#F59E0B',
+          backgroundColor: 'rgba(245,158,11,.15)',
+          borderWidth: 2,
+          borderDash: [4, 4],
+          pointRadius: 2,
+          fill: false,
+          tension: 0.3,
+          yAxisID: 'y1',
+          order: 0,
         },
       ],
     },
@@ -2790,7 +2822,16 @@ function renderGdMainChart(dias) {
       interaction: { mode: 'index', intersect: false },
       plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 12 } } },
       scales: {
-        y: { beginAtZero: true, grid: { color: chartGrid() } },
+        y: {
+          type: 'linear', position: 'left', beginAtZero: true,
+          grid: { color: chartGrid() },
+          title: { display: true, text: 'kWh', font: { size: 10 } },
+        },
+        y1: {
+          type: 'linear', position: 'right', beginAtZero: true,
+          grid: { drawOnChartArea: false },
+          title: { display: true, text: 'kWh/m²', font: { size: 10 } },
+        },
         x: { grid: { display: false } },
       },
     },
@@ -2810,49 +2851,6 @@ function renderGdPieChart(distrib) {
       responsive: true,
       cutout: '64%',
       plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 11, padding: 11 } } },
-    },
-  });
-}
-
-function renderGdIrradChart(dias) {
-  const ctx = $('gdIrradChart')?.getContext('2d');
-  if (!ctx) return;
-  if (state.charts.gdIrrad) state.charts.gdIrrad.destroy();
-  state.charts.gdIrrad = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: dias.map((d) => String(d.dia).padStart(2, '0')),
-      datasets: [
-        {
-          label: 'Irradiação Realizada (kWh/m²)',
-          data: dias.map((d) => d.irrad),
-          borderColor: '#00B4D8',
-          backgroundColor: 'rgba(0,180,216,.12)',
-          borderWidth: 2,
-          pointRadius: 2,
-          fill: true,
-          tension: 0.35,
-        },
-        {
-          label: 'Irradiação Prevista (kWh/m²)',
-          data: dias.map((d) => d.irradPrev),
-          borderColor: '#F59E0B',
-          borderWidth: 2,
-          borderDash: [4, 4],
-          pointRadius: 0,
-          fill: false,
-          tension: 0.35,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      interaction: { mode: 'index', intersect: false },
-      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 12 } } },
-      scales: {
-        y: { beginAtZero: true, grid: { color: chartGrid() }, ticks: { callback: (v) => v + ' kWh/m²' } },
-        x: { grid: { display: false } },
-      },
     },
   });
 }

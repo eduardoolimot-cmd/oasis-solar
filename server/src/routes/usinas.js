@@ -28,6 +28,7 @@ function shapeUsina(u) {
     inicio: u.inicio,
     local: u.local,
     obs: u.obs,
+    uc: u.uc,
     modulos: {
       modelo: u.moduloModelo,
       qtd: u.moduloQtd,
@@ -44,6 +45,7 @@ function shapeUsina(u) {
       id: s.id,
       nome: s.nome,
       kwp: s.kwp,
+      uc: s.uc,
       previsoes: (s.previsoes || []).map((p) => ({
         mes: p.mes,
         gen: p.gen,
@@ -58,6 +60,30 @@ function shapeUsina(u) {
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
   };
+}
+
+// Deriva a previsão anual "da usina" a partir dos SKIDs (mesma regra do
+// botão "Calcular dos SKIDs" do front: Geração soma, Irradiação e PR fazem
+// média). Aplicada sempre que a usina tem SKIDs, para a previsão da usina
+// nunca ficar dessincronizada da soma dos SKIDs (painel e relatório usam a
+// previsão skidId=null como "a previsão da usina").
+function previsaoUsinaDosSkids(skids) {
+  const porMes = {};
+  for (const s of skids) {
+    for (const p of s.previsoes || []) {
+      if (!porMes[p.mes]) porMes[p.mes] = { gen: 0, irradVals: [], prVals: [] };
+      porMes[p.mes].gen += p.gen || 0;
+      if (p.irrad) porMes[p.mes].irradVals.push(p.irrad);
+      if (p.pr) porMes[p.mes].prVals.push(p.pr);
+    }
+  }
+  const media = (arr) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);
+  return Object.entries(porMes).map(([mes, v]) => ({
+    mes: parseInt(mes),
+    gen: v.gen,
+    irrad: media(v.irradVals),
+    pr: media(v.prVals),
+  }));
 }
 
 const INCLUDE_FULL = {
@@ -117,6 +143,7 @@ router.post(
           inicio: data.inicio,
           local: data.local,
           obs: data.obs,
+          uc: data.skids.length ? null : data.uc,
           moduloModelo: data.moduloModelo,
           moduloQtd: data.moduloQtd ?? 0,
           moduloW: data.moduloW ?? 400,
@@ -128,9 +155,14 @@ router.post(
         },
       });
 
-      if (data.previsoes.length) {
+      // Previsão "da usina": se há SKIDs, é sempre a soma/média deles
+      // (nunca depende de sincronização manual); senão, a informada.
+      const previsoesUsina = data.skids.length
+        ? previsaoUsinaDosSkids(data.skids)
+        : data.previsoes;
+      if (previsoesUsina.length) {
         await tx.previsao.createMany({
-          data: data.previsoes.map((p) => ({
+          data: previsoesUsina.map((p) => ({
             usinaId: usina.id,
             mes: p.mes,
             gen: p.gen,
@@ -142,7 +174,7 @@ router.post(
 
       for (const s of data.skids) {
         const skid = await tx.skid.create({
-          data: { usinaId: usina.id, nome: s.nome, kwp: s.kwp },
+          data: { usinaId: usina.id, nome: s.nome, kwp: s.kwp, uc: s.uc },
         });
         if (s.previsoes?.length) {
           await tx.previsao.createMany({
@@ -218,6 +250,7 @@ router.put(
           inicio: data.inicio,
           local: data.local,
           obs: data.obs,
+          uc: data.skids.length ? null : data.uc,
           moduloModelo: data.moduloModelo,
           moduloQtd: data.moduloQtd ?? 0,
           moduloW: data.moduloW ?? 400,
@@ -229,10 +262,13 @@ router.put(
         },
       });
 
-      // 3. previsoes da usina
-      if (data.previsoes.length) {
+      // 3. previsão "da usina": se há SKIDs, é sempre a soma/média deles.
+      const previsoesUsina = data.skids.length
+        ? previsaoUsinaDosSkids(data.skids)
+        : data.previsoes;
+      if (previsoesUsina.length) {
         await tx.previsao.createMany({
-          data: data.previsoes.map((p) => ({
+          data: previsoesUsina.map((p) => ({
             usinaId: id,
             mes: p.mes,
             gen: p.gen,
@@ -245,7 +281,7 @@ router.put(
       // 4. skids (com suas previsoes e inversores)
       for (const s of data.skids) {
         const skid = await tx.skid.create({
-          data: { usinaId: id, nome: s.nome, kwp: s.kwp },
+          data: { usinaId: id, nome: s.nome, kwp: s.kwp, uc: s.uc },
         });
         if (s.previsoes?.length) {
           await tx.previsao.createMany({

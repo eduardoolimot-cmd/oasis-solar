@@ -33,7 +33,7 @@ router.get(
 
     const usina = await prisma.usina.findUnique({
       where: { id: usinaId },
-      include: { previsoes: { where: { skidId: null } } },
+      include: { previsoes: true, skids: { orderBy: { nome: 'asc' } } },
     });
     if (!usina) throw httpErrors.notFound('Usina não encontrada');
 
@@ -48,9 +48,16 @@ router.get(
       take: 10,
     });
 
-    const gR = lancamentos.reduce((s, l) => s + l.geracao, 0);
-    const prevMes = usina.previsoes.find((p) => p.mes === parseInt(mes));
+    const mesInt = parseInt(mes);
     const degradacao = fatorDegradacao(usina.inicio, parseInt(ano));
+
+    // Geração real: soma de TODOS os lançamentos do mês (com ou sem SKID) —
+    // já é automaticamente "o somatório dos skids" por não filtrar skidId.
+    const gR = lancamentos.reduce((s, l) => s + l.geracao, 0);
+    // Previsão "da usina" (skidId null) — quando a usina tem SKIDs, este
+    // valor é mantido pelo servidor sempre igual à soma/média dos SKIDs
+    // (ver usinas.js), então já reflete o somatório automaticamente.
+    const prevMes = usina.previsoes.find((p) => p.skidId === null && p.mes === mesInt);
     const gP = (prevMes?.gen || 0) * degradacao;
     const iP = prevMes?.irrad || 0;
     const pP = prevMes?.pr || 0;
@@ -64,6 +71,25 @@ router.get(
     const variacaoG = gP ? +(((gR - gP) / gP) * 100).toFixed(1) : 0;
     const variacaoI = iP && iR ? +(((iR - iP) / iP) * 100).toFixed(1) : 0;
     const variacaoP = +(pR - pP).toFixed(1);
+
+    // ---------- Geração separada por SKID (quando a usina tem SKIDs) ----------
+    const porSkid = usina.skids.map((s) => {
+      const ls = lancamentos.filter((l) => l.skidId === s.id);
+      const gerReal = ls.reduce((sum, l) => sum + l.geracao, 0);
+      const prevSkid = usina.previsoes.find((p) => p.skidId === s.id && p.mes === mesInt);
+      const gerPrev = (prevSkid?.gen || 0) * degradacao;
+      return {
+        nome: s.nome,
+        uc: s.uc || 'N/D',
+        gerReal,
+        gerPrev,
+        variacao: gerPrev ? +(((gerReal - gerPrev) / gerPrev) * 100).toFixed(1) : 0,
+      };
+    });
+    // Lançamentos sem SKID numa usina que tem SKIDs (entrada "geral") — exibe à parte
+    const gerSemSkid = usina.skids.length
+      ? lancamentos.filter((l) => l.skidId === null).reduce((s, l) => s + l.geracao, 0)
+      : 0;
 
     // Cria o PDF
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
@@ -99,6 +125,11 @@ router.get(
         usina.inversorQtd ? `${usina.inversorQtd}× ${usina.inversorModelo}` : 'N/D',
       ],
     ];
+    // UC só aparece aqui quando a usina NÃO tem SKIDs — com SKIDs, cada um
+    // tem sua própria UC, mostrada na seção de geração por SKID.
+    if (!usina.skids.length) {
+      dataInfo.push(['UC:', usina.uc || 'N/D', '', '']);
+    }
     dataInfo.forEach((row, i) => {
       const y = 115 + i * 14;
       doc.font('Helvetica-Bold').text(row[0], 40, y);
@@ -108,7 +139,7 @@ router.get(
     });
 
     // Seção 2: Resumo operacional
-    let y = 175;
+    let y = 115 + dataInfo.length * 14 + 18;
     doc.fillColor('#0057B8').font('Helvetica-Bold').fontSize(11).text('2. RESUMO OPERACIONAL DO MÊS', 40, y);
     y += 15;
     doc.moveTo(40, y).lineTo(doc.page.width - 40, y).strokeColor('#0057B8').lineWidth(0.6).stroke();
@@ -137,9 +168,50 @@ router.get(
       y += 18;
     });
 
-    // Seção 3: Manutenções concluídas
+    // Seção 3 (só se a usina tem SKIDs): geração separada por SKID
+    let secManut = 3;
+    if (usina.skids.length) {
+      secManut = 4;
+      y += 16;
+      doc.fillColor('#0057B8').font('Helvetica-Bold').fontSize(11).text('3. GERAÇÃO POR SKID', 40, y);
+      y += 15;
+      doc.moveTo(40, y).lineTo(doc.page.width - 40, y).strokeColor('#0057B8').lineWidth(0.6).stroke();
+      y += 8;
+
+      doc.rect(40, y, doc.page.width - 80, 18).fill('#0057B8');
+      doc.fillColor('#fff').font('Helvetica-Bold').fontSize(9);
+      doc.text('SKID', 46, y + 5);
+      doc.text('UC', 180, y + 5);
+      doc.text('Previsto (kWh)', 280, y + 5);
+      doc.text('Realizado (kWh)', 380, y + 5);
+      doc.text('Variação', 480, y + 5);
+      y += 18;
+
+      const linhasSkid = [...porSkid];
+      if (gerSemSkid) {
+        linhasSkid.push({ nome: 'Sem SKID (geral)', uc: '—', gerReal: gerSemSkid, gerPrev: 0, variacao: 0 });
+      }
+      linhasSkid.forEach((s, i) => {
+        if (i % 2 === 0) doc.rect(40, y, doc.page.width - 80, 18).fill('#F8FBFF');
+        doc.fillColor('#222').font('Helvetica-Bold').fontSize(9).text(s.nome, 46, y + 5, { width: 130, ellipsis: true });
+        doc.font('Helvetica').text(s.uc, 180, y + 5, { width: 90 });
+        doc.text(fmtNum(s.gerPrev), 280, y + 5);
+        doc.text(fmtNum(s.gerReal), 380, y + 5);
+        doc.fillColor(s.variacao >= 0 ? '#10B981' : '#EF4444').font('Helvetica-Bold').text(s.gerPrev ? `${s.variacao}%` : '—', 480, y + 5);
+        y += 18;
+      });
+      // Linha de total (somatório dos SKIDs)
+      doc.rect(40, y, doc.page.width - 80, 18).fill('#E8F3FD');
+      doc.fillColor('#0057B8').font('Helvetica-Bold').fontSize(9).text('TOTAL DA USINA', 46, y + 5);
+      doc.text(fmtNum(gP), 280, y + 5);
+      doc.text(fmtNum(gR), 380, y + 5);
+      doc.text(`${variacaoG}%`, 480, y + 5);
+      y += 18;
+    }
+
+    // Seção de manutenções concluídas
     y += 16;
-    doc.fillColor('#0057B8').font('Helvetica-Bold').fontSize(11).text('3. HISTÓRICO DE MANUTENÇÃO', 40, y);
+    doc.fillColor('#0057B8').font('Helvetica-Bold').fontSize(11).text(`${secManut}. HISTÓRICO DE MANUTENÇÃO`, 40, y);
     y += 15;
     doc.moveTo(40, y).lineTo(doc.page.width - 40, y).strokeColor('#0057B8').lineWidth(0.6).stroke();
     y += 8;

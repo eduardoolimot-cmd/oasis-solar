@@ -75,6 +75,7 @@ model Usina {
   inicio DateTime?
   local  String?
   obs    String?
+  uc     String? // Unidade Consumidora — usada quando a usina NÃO tem SKIDs
 
   moduloModelo String?
   moduloQtd    Int     @default(0)
@@ -134,6 +135,7 @@ model Skid {
   usinaId   String
   nome      String
   kwp       Float    @default(0)
+  uc        String? // Unidade Consumidora deste SKID
   createdAt DateTime @default(now())
 
   usina             Usina              @relation(fields: [usinaId], references: [id], onDelete: Cascade)

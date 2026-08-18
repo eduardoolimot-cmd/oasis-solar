@@ -23,6 +23,7 @@ export const inversorSchema = z.object({
 export const skidSchema = z.object({
   nome: z.string().trim().min(1, 'Nome do SKID é obrigatório'),
   kwp: z.coerce.number().min(0).default(0),
+  uc: optionalString,
   previsoes: z.array(previsaoSchema).optional().default([]),
   inversores: z.array(inversorSchema).optional().default([]),
 });
@@ -38,6 +39,7 @@ export const usinaSchema = z.object({
     .transform((v) => (v ? new Date(v) : null)),
   local: optionalString,
   obs: optionalString,
+  uc: optionalString,
 
   moduloModelo: optionalString,
   moduloQtd: optionalInt.default(0),
